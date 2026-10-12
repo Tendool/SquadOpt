@@ -30,6 +30,7 @@ let stadium;
 try {
   stadium = new Stadium($("#stage"), $("#labels"), { quality: QUALITY[settings.get("quality")], kit: KITS[settings.get("kit")] || KITS[0] });
   stadium.setLabels(settings.get("labels")); stadium.setReducedMotion(RM()); stadium.intro();
+  if (innerWidth > 900) stadium.setFrameShift(Math.min(600, innerWidth * .46) / innerWidth);
   bootStep("stage", "ok", "ready");
 } catch (e) {
   console.error(e); $("#fallback").hidden = false; bootStep("stage", "warn", "2D mode");
@@ -83,10 +84,9 @@ async function boot() {
   renderHistory();
   const ai = await agent.checkStatus();
   bootStep("ai", ai ? "ok" : "warn", ai ? "ready" : "offline");
-  $("#mAgent").textContent = ai ? "Qwen 3.5" : "Offline";
   const btn = $("#enter"), touch = matchMedia("(pointer:coarse)").matches;
-  btn.disabled = false; btn.querySelector("span").textContent = "Enter stadium";
-  btn.querySelector("kbd").textContent = touch ? "tap" : "any key";
+  btn.disabled = false; $(".ko-text span", btn).textContent = "Kick off";
+  $(".ko-text small", btn).textContent = touch ? "tap anywhere" : "click, or press any key";
   addEventListener("keydown", enter, { once: true }); btn.addEventListener("click", enter, { once: true });
   $("#start").addEventListener("pointerdown", enter, { once: true });
 }
@@ -97,7 +97,8 @@ function enter(e) {
   sfx.play("whistle"); setTimeout(() => sfx.play("cheer", 2.6), 250);
   if (settings.get("amb") > 0) setTimeout(() => sfx.startAmbience(), 600);
   gsap.to("#start", { opacity: 0, duration: D(.7), onComplete: () => $("#start").remove() });
-  gsap.to(".logo span", { y: -30, opacity: 0, stagger: .06, duration: D(.4) });
+  gsap.to(".start-side", { xPercent: -100, duration: D(.8), ease: "power3.inOut" });
+  stadium.setFrameShift(0, 1.2);
   document.body.classList.remove("booting");
   stadium.setView("tactical");
   const tl = gsap.timeline({ delay: D(.6) });

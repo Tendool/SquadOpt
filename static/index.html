@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#0e1114">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M4 2h18l6 6v22H10l-6-6z' fill='%23d4772e'/%3E%3Cpath d='M11 11h10v3H14v2h7v6H11v-3h7v-2h-7z' fill='%230e1114'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,400&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/css/app.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script type="importmap">
@@ -25,29 +25,38 @@
 
 <!-- ============ START SCREEN ============ -->
 <section class="start" id="start" aria-label="Start screen">
-  <div class="start-card panel">
-    <header class="start-h"><span>23MNG336 · Operations Research</span><span>Team AA01</span></header>
-    <div class="start-body">
-      <h1 class="logo" aria-label="SquadOpt"><span class="l1">SQUAD</span><span class="l2">OPT</span></h1>
-      <div class="logo-sub">Squad optimiser · Integer programming · FC 26</div>
-      <p class="tag">Name the budget. The optimiser finds the eleven.</p>
-      <dl class="metrics">
-        <div><dt>Players</dt><dd id="mPlayers">—</dd></div>
-        <div><dt>Formations</dt><dd id="mForms">—</dd></div>
-        <div><dt>Solver</dt><dd>HiGHS</dd></div>
-        <div><dt>Agent</dt><dd id="mAgent">—</dd></div>
-      </dl>
-      <div class="sec-h boot-h"><b>SYS</b>System check<i></i></div>
-      <ul class="boot" id="boot">
-        <li data-k="stage"><i></i><code>01</code><span>3D stadium engine</span><em>loading</em></li>
-        <li data-k="data"><i></i><code>02</code><span>Player database</span><em>loading</em></li>
-        <li data-k="ai"><i></i><code>03</code><span>Qwen agent (Ollama)</span><em>checking</em></li>
-      </ul>
-      <div class="bootbar"><i id="bootBar"></i></div>
-      <button class="press" id="enter" type="button" disabled><span>Loading</span><kbd>any key</kbd></button>
+  <div class="start-side">
+    <header class="start-top">
+      <span class="wm"><span class="mark" aria-hidden="true"></span><span>Squad<b>Opt</b></span></span>
+      <span class="course">23MNG336<br>Operations Research</span>
+    </header>
+
+    <div class="start-copy">
+      <p class="issue">Matchday programme · FC 26 edition</p>
+      <h1 class="headline">Name the budget.<br><em>We’ll pick the eleven.</em></h1>
+      <p class="lede">An integer program weighs <span id="mPlayers">every</span> players across <span id="mForms">32</span> formations and returns the
+        strongest squad your money can buy, with a bench that covers every position and the players you insist on.</p>
+      <button class="kickoff" id="enter" type="button" disabled>
+        <svg class="ko-ring" viewBox="0 0 80 80" aria-hidden="true"><circle cx="40" cy="40" r="37"/><line x1="40" y1="3" x2="40" y2="77"/><circle class="spot" cx="40" cy="40" r="3.5"/></svg>
+        <span class="ko-text"><span>Warming up</span><small>loading the stadium</small></span>
+      </button>
     </div>
-    <footer class="start-f"><span>Rupali K · S Mahadev · Tendool Srivatsav · Sarang U</span>
-      <span class="snd"><svg class="ic" viewBox="0 0 24 24"><path d="M3 14v-2a9 9 0 0 1 18 0v2"/><rect x="2" y="14" width="5" height="7" rx="1"/><rect x="17" y="14" width="5" height="7" rx="1"/></svg>Sound on recommended</span></footer>
+
+    <footer class="start-bottom">
+      <div class="teamsheet">
+        <h2>Team sheet <span>AA01</span></h2>
+        <ol><li><b>1</b>Rupali K</li><li><b>2</b>S Mahadev</li><li><b>3</b>Tendool Srivatsav</li><li><b>4</b>Sarang U</li></ol>
+      </div>
+      <div class="status">
+        <ul class="boot" id="boot">
+          <li data-k="stage"><i></i>Stadium <em>loading</em></li>
+          <li data-k="data"><i></i>Players <em>loading</em></li>
+          <li data-k="ai"><i></i>Agent <em>checking</em></li>
+        </ul>
+        <div class="bootbar"><i id="bootBar"></i></div>
+        <p class="snd">Headphones on. The crowd is listening.</p>
+      </div>
+    </footer>
   </div>
 </section>
 

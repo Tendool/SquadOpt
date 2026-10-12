@@ -299,7 +299,20 @@ export class Stadium {
     const w = this.canvas.clientWidth || innerWidth, h = this.canvas.clientHeight || innerHeight;
     this.renderer.setSize(w, h, false); this.labels.setSize(w, h);
     this.composer.setPixelRatio(this.renderer.getPixelRatio()); this.composer.setSize(w, h);
-    this.camera.aspect = w / h; this.camera.fov = w / h < 1 ? 58 : 42; this.camera.updateProjectionMatrix();
+    this.camera.aspect = w / h; this.camera.fov = w / h < 1 ? 58 : 42;
+    this._applyShift();
+  }
+
+  /** Shift the rendered image sideways by a fraction of the screen width (keeps the stadium beside the start column). */
+  setFrameShift(frac, duration = 0) {
+    this._shiftObj ??= { v: 0 };
+    gsap.to(this._shiftObj, { v: frac, duration: dur(duration), ease: "power3.inOut", onUpdate: () => this._applyShift() });
+    if (!duration || REDUCED) { this._shiftObj.v = frac; this._applyShift(); }
+  }
+  _applyShift() {
+    const w = this.canvas.clientWidth || innerWidth, h = this.canvas.clientHeight || innerHeight, f = this._shiftObj?.v || 0;
+    if (f) this.camera.setViewOffset(w, h, -w * f / 2, 0, w, h); else this.camera.clearViewOffset();
+    this.camera.updateProjectionMatrix();
   }
 
   setView(name, instant = false) {
