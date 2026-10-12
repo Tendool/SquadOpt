@@ -1,0 +1,6 @@
+flask
+pandas
+numpy
+scipy
+pulp<4
+highspy
