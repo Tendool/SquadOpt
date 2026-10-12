@@ -44,7 +44,8 @@ def _norm(s):
     return "".join(c for c in unicodedata.normalize("NFKD", str(s)) if not unicodedata.combining(c)).lower()
 
 
-SEARCH = (DF.short_name.map(_norm) + " | " + DF.long_name.map(_norm)).values.astype(str)
+# a real NumPy unicode array (pandas 3 string columns give an extension array that np.char cannot search)
+SEARCH = np.array([f"{_norm(a)} | {_norm(b)}" for a, b in zip(DF.short_name, DF.long_name)], dtype=str)
 CLUB = DF.club_name.fillna("Free agent").values if "club_name" in DF else np.full(len(DF), "")
 
 
