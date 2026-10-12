@@ -36,8 +36,8 @@ export function attachTilt(el) {
   const shine = card.querySelector(".fc-shine");
   el.addEventListener("pointermove", e => {
     const r = card.getBoundingClientRect(), x = (e.clientX - r.left) / r.width - .5, y = (e.clientY - r.top) / r.height - .5;
-    card.style.transform = `rotateY(${x * 18}deg) rotateX(${-y * 18}deg) translateZ(0)`;
-    shine.style.background = `radial-gradient(circle at ${(x + .5) * 100}% ${(y + .5) * 100}%, rgba(255,255,255,.45), transparent 55%)`;
+    card.style.transform = `rotateY(${x * 8}deg) rotateX(${-y * 8}deg) translateZ(0)`;
+    shine.style.background = "rgba(255,255,255,.05)";
   });
   el.addEventListener("pointerleave", () => { card.style.transform = ""; shine.style.background = ""; });
 }

@@ -11,12 +11,12 @@ const D = s => (RM() ? 0 : s);
 const TYPES = { FB: "Full-back", WB: "Wing-back", CB: "Centre-back", DM: "Holding mid", CM: "Central mid", AM: "Attacking mid", WM: "Wide mid", W: "Winger", ST: "Striker", GK: "Goalkeeper" };
 const SLOT_GROUP = s => (s === "GK" ? "GK" : /^(LB|RB|LWB|RWB|CB)$/.test(s) ? "DEF" : /^(LW|RW|ST)$/.test(s) ? "FWD" : "MID");
 const KITS = [
-  { name: "Home", shirt: "#eef1f7", shorts: "#141a2a", socks: "#eef1f7", num: "#141a2a" },
-  { name: "Crimson", shirt: "#c8102e", shorts: "#ffffff", socks: "#c8102e", num: "#ffffff" },
-  { name: "Sky", shirt: "#6cabdd", shorts: "#ffffff", socks: "#1c2c5b", num: "#1c2c5b" },
-  { name: "Volt", shirt: "#d4ff3a", shorts: "#0b0f17", socks: "#0b0f17", num: "#0b0f17" },
-  { name: "Midnight", shirt: "#151b2d", shorts: "#151b2d", socks: "#d4ff3a", num: "#d4ff3a" },
-  { name: "Royal", shirt: "#5a3fd8", shorts: "#ffffff", socks: "#5a3fd8", num: "#ffffff" },
+  { name: "Home", shirt: "#eef0f2", shorts: "#1d232b", socks: "#eef0f2", num: "#1d232b" },
+  { name: "Crimson", shirt: "#a8262b", shorts: "#eef0f2", socks: "#a8262b", num: "#eef0f2" },
+  { name: "Sky", shirt: "#6f9fc9", shorts: "#eef0f2", socks: "#1f2f4d", num: "#1f2f4d" },
+  { name: "Forest", shirt: "#2f5d4a", shorts: "#eef0f2", socks: "#2f5d4a", num: "#eef0f2" },
+  { name: "Charcoal", shirt: "#2a3038", shorts: "#2a3038", socks: "#d4772e", num: "#e7e9ec" },
+  { name: "Royal", shirt: "#34488f", shorts: "#eef0f2", socks: "#34488f", num: "#eef0f2" },
 ];
 const toast = (text, kind = "") => { baseToast(text, kind); sfx.play(kind === "err" ? "error" : "notify"); };
 
@@ -43,7 +43,7 @@ stadium.onHoverChange = d => { if (d) sfx.play("hover"); };
 stadium.onHover = (d, x, y) => {
   if (!d) { tip.hidden = true; hot(null); return; }
   const s = S.result?.squad.find(r => r.id === d.id) || {}, slot = S.result?.pitch.find(p => p.id === d.id);
-  tip.innerHTML = `<h4>${esc(s.Player || d.name)}</h4><div class="tm">${esc(s.club || d.club || "")}${s.required ? " · <b style='color:var(--cyan)'>REQUIRED</b>" : ""}</div><dl>
+  tip.innerHTML = `<h4>${esc(s.Player || d.name)}</h4><div class="tm">${esc(s.club || d.club || "")}${s.required ? " · <b style='color:var(--info)'>REQUIRED</b>" : ""}</div><dl>
     <dt>Role</dt><dd>${slot ? "XI · " + esc(slot.slot) : "Bench"}</dd>${slot ? `<dt>Slot rating</dt><dd>${fmt(slot.rating, 0)}</dd>` : ""}
     <dt>Overall / Pot.</dt><dd>${s.Overall ?? "–"} / ${s.Potential ?? "–"}</dd><dt>Positions</dt><dd>${esc(s["Natural positions"] || "")}</dd>
     <dt>Age</dt><dd>${s.Age ?? "–"}</dd><dt>Value</dt><dd>€${fmt(s["Value (€M)"])}M${s["Price imputed"] ? "*" : ""}</dd></dl><div class="hint">Click to inspect</div>`;
@@ -175,7 +175,7 @@ typeahead($("#mustTa"), p => { if (!S.must.some(x => x.id === p.id)) { S.must.pu
 typeahead($("#exclTa"), p => { if (!S.excl.some(x => x.id === p.id)) { S.excl.push(p); S.must = S.must.filter(x => x.id !== p.id); sfx.play("pop"); renderPicks(); } });
 
 // ------------------------------------------------------------------ kits + camera
-$("#kits").innerHTML = KITS.map((k, i) => `<button type="button" data-sfx="kit" style="background:linear-gradient(180deg,${k.shirt} 62%,${k.shorts} 62%)" aria-label="${k.name} kit" title="${k.name} kit" aria-pressed="${i === settings.get("kit")}" data-i="${i}"></button>`).join("");
+$("#kits").innerHTML = KITS.map((k, i) => `<button type="button" data-sfx="kit" style="background:${k.shirt};box-shadow:inset 0 -7px 0 ${k.shorts}" aria-label="${k.name} kit" title="${k.name} kit" aria-pressed="${i === settings.get("kit")}" data-i="${i}"></button>`).join("");
 $("#kits").onclick = e => { const b = e.target.closest("button"); if (!b) return; $$("#kits button").forEach(x => x.setAttribute("aria-pressed", x === b)); settings.set("kit", +b.dataset.i); stadium.setKit(KITS[+b.dataset.i]); };
 segmented($("#camSeg"), b => { stadium.setView(b.dataset.cam); sfx.play("camera"); });
 function camera(name) { const b = $(`#camSeg [data-cam=${name}]`); select($("#camSeg"), b); stadium.setView(name); sfx.play("camera"); }
@@ -304,7 +304,7 @@ function inspect(id) {
       <dt>Overall</dt><dd>${s.Overall} <span class="muted">(potential ${s.Potential})</span></dd>
       <dt>Positions</dt><dd>${esc(s["Natural positions"])}</dd><dt>Age</dt><dd>${s.Age}</dd>
       <dt>Value</dt><dd>€${fmt(s["Value (€M)"])}M${s["Price imputed"] ? " <span class='muted'>(estimated)</span>" : ""}</dd>
-      <dt>AHP utility</dt><dd>${fmt(s.Utility, 3)}</dd>${s.required ? `<dt>Required</dt><dd style="color:var(--cyan)">Yes${d.required.find(r => r.id === id)?.start ? ", must start" : ""}</dd>` : ""}</dl></div>`;
+      <dt>AHP utility</dt><dd>${fmt(s.Utility, 3)}</dd>${s.required ? `<dt>Required</dt><dd style="color:var(--info)">Yes${d.required.find(r => r.id === id)?.start ? ", must start" : ""}</dd>` : ""}</dl></div>`;
   openDlg($("#inspect"));
   sfx.play("card");
   gsap.fromTo("#insCard .fc", { rotateY: -90, opacity: 0 }, { rotateY: 0, opacity: 1, duration: D(.6), ease: "back.out(1.6)" });
@@ -414,17 +414,17 @@ function renderInsights() {
     b: d.squad.filter(s => s.group === g && !xi.has(s.id)).reduce((t, s) => t + s["Value (€M)"], 0) })));
   const r = d.pitch.map(p => p.rating);
   vbars($("#chSlots"), d.pitch.map(p => ({ label: p.slot, v: p.rating, color: GROUP_COLOR[SLOT_GROUP(p.slot)] })), Math.floor(Math.min(...r) / 5) * 5 - 5, Math.ceil(Math.max(...r) / 5) * 5);
-  scatter($("#chScatter"), d.squad.map(s => ({ x: s.Overall, y: s["Value (€M)"], color: s.required ? "#3fe0ff" : xi.has(s.id) ? "#d4ff3a" : "#8b96ad",
+  scatter($("#chScatter"), d.squad.map(s => ({ x: s.Overall, y: s["Value (€M)"], color: s.required ? "#5b8fbf" : xi.has(s.id) ? "#d4772e" : "#7d8691",
     label: `${s.Player}: ${s.Overall} OVR, €${fmt(s["Value (€M)"])}M`, r: xi.has(s.id) ? 5 : 3.5 })), "Overall", "Value €M");
-  $("#chScatter").insertAdjacentHTML("beforeend", `<div class="legend"><span><i style="background:#d4ff3a"></i>XI</span><span><i style="background:#8b96ad"></i>Bench</span><span><i style="background:#3fe0ff"></i>Required</span></div>`);
+  $("#chScatter").insertAdjacentHTML("beforeend", `<div class="legend"><span><i style="background:#d4772e"></i>XI</span><span><i style="background:#7d8691"></i>Bench</span><span><i style="background:#5b8fbf"></i>Required</span></div>`);
   $("#chBackups").innerHTML = `<div class="bk-row">${Object.entries(d.model.backups).map(([t, n]) => `<div class="bk"><span>${esc(TYPES[t] || t)}</span><b>${esc(n)}</b></div>`).join("")}</div>`;
   const ages = d.squad.map(s => s.Age);
-  histogram($("#chAge"), ages, "#9b8cff", Math.floor(Math.min(...ages) / 2) * 2, Math.max(...ages) + 2);
+  histogram($("#chAge"), ages, "#a7b4c2", Math.floor(Math.min(...ages) / 2) * 2, Math.max(...ages) + 2);
 }
 function renderModelStatic() {
   const a = S.meta.ahp, ab = c => c.slice(0, 3).toUpperCase();
-  $("#ahpBars").innerHTML = a.criteria.map((c, i) => `<div class="hbar" title="${esc(c)}"><span>${ab(c)}</span><div class="tr"><i style="width:${a.weights[i] * 100}%;background:#d4ff3a;transform:scaleX(1)"></i></div><b>${fmt(a.weights[i] * 100, 1)}%</b></div>`).join("") +
-    `<p class="muted" style="margin-top:8px">Consistency ratio CR = <b style="color:var(--lime)">${a.cr.toFixed(4)}</b> (must be &lt; 0.10)</p>`;
+  $("#ahpBars").innerHTML = a.criteria.map((c, i) => `<div class="hbar" title="${esc(c)}"><span>${ab(c)}</span><div class="tr"><i style="width:${a.weights[i] * 100}%;background:#d4772e;transform:scaleX(1)"></i></div><b>${fmt(a.weights[i] * 100, 1)}%</b></div>`).join("") +
+    `<p class="muted" style="margin-top:8px">Consistency ratio CR = <b style="color:var(--accent)">${a.cr.toFixed(4)}</b> (must be &lt; 0.10)</p>`;
   const n = a.criteria.length, f = v => (v >= 1 ? +v.toFixed(2) : "1/" + Math.round(1 / v));
   $("#ahpMatrix").innerHTML = `<div class="matrix" style="grid-template-columns:repeat(${n + 1},1fr)"><div class="h"></div>${a.criteria.map(c => `<div class="h">${ab(c)}</div>`).join("")}` +
     a.matrix.map((row, i) => `<div class="h">${ab(a.criteria[i])}</div>` + row.map(v => `<div>${f(v)}</div>`).join("")).join("") + `</div>`;
@@ -445,7 +445,7 @@ function renderModelRun() {
   $("#ilpStats").innerHTML = `<div class="stats">
     <div class="stat"><b>${m.pool_size.toLocaleString()}</b><span>players after pruning</span></div><div class="stat"><b>${m.n_vars.toLocaleString()}</b><span>binary variables</span></div>
     <div class="stat"><b>${m.n_cons.toLocaleString()}</b><span>constraints</span></div><div class="stat"><b>${m.n_pairs.toLocaleString()}</b><span>(player, slot) pairs</span></div></div>
-    <p class="muted" style="margin-top:10px">${m.statuses.map(([s, t], i) => `Stage ${i + 1}: <b style="color:var(--lime)">${esc(s)}</b> in ${fmt(t)}s`).join(" · ")}${m.tiebreak_done === false ? "<br><b style='color:var(--amber)'>AHP tie-break hit the time limit:</b> the squad is still optimal for expected quality, but ties were not broken by utility." : ""}</p>`;
+    <p class="muted" style="margin-top:10px">${m.statuses.map(([s, t], i) => `Stage ${i + 1}: <b style="color:var(--accent)">${esc(s)}</b> in ${fmt(t)}s`).join(" · ")}${m.tiebreak_done === false ? "<br><b style='color:var(--warn)'>AHP tie-break hit the time limit:</b> the squad is still optimal for expected quality, but ties were not broken by utility." : ""}</p>`;
   $("#evalStats").innerHTML = `<div class="stats">
     <div class="stat"><b>${fmt(m.xi_quality, 0)}</b><span>Q XI (starting XI)</span></div><div class="stat"><b>${fmt(m.depth, 0)}</b><span>D (backup depth)</span></div>
     <div class="stat"><b>${fmt(m.eq, 1)}</b><span>objective, p=${Math.round(m.p_abs * 100)}%</span></div><div class="stat"><b>${fmt(k[expK], 1)}</b><span>simulated E[Q]</span></div>
@@ -467,10 +467,10 @@ function renderHistory() {
   const best = Math.max(...S.history.map(h => h.xi));
   $("#histRows").innerHTML = S.history.map((h, i) => `<tr><td>${new Date(h.t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</td>
     <td><span class="src ${h.source === "agent" ? "ai" : ""}">${h.source === "agent" ? "AGENT" : "BUILDER"}</span></td><td><b>${esc(h.formation)}</b></td>
-    <td class="r">€${fmt(h.budget, 0)}M</td><td class="r">€${fmt(h.spent)}M</td><td class="r" style="${h.xi === best ? "color:var(--lime);font-weight:700" : ""}">${fmt(h.xi, 0)}</td>
+    <td class="r">€${fmt(h.budget, 0)}M</td><td class="r">€${fmt(h.spent)}M</td><td class="r" style="${h.xi === best ? "color:var(--accent);font-weight:700" : ""}">${fmt(h.xi, 0)}</td>
     <td class="r">${fmt(h.eq)}</td><td class="r">${fmt(h.p5)}</td><td class="r">${fmt(h.age)}</td><td>${esc(h.req.join(", ")) || "–"}</td>
     <td><button class="btn ghost sm" data-load="${i}">Load</button></td></tr>`).join("");
-  scatterBudget($("#chCompare"), S.history.map(h => ({ x: h.budget, y: h.xi, color: h.source === "agent" ? "#9b8cff" : "#d4ff3a", label: `${h.formation} · €${h.budget}M → XI ${fmt(h.xi, 0)}` })));
+  scatterBudget($("#chCompare"), S.history.map(h => ({ x: h.budget, y: h.xi, color: h.source === "agent" ? "#a7b4c2" : "#d4772e", label: `${h.formation} · €${h.budget}M → XI ${fmt(h.xi, 0)}` })));
 }
 function scatterBudget(el, pts) {
   const w = 320, h = 200, pl = 34, pb = 26, pt = 10, pr = 12;
@@ -480,8 +480,8 @@ function scatterBudget(el, pts) {
   let s = `<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="XI quality against budget">`;
   for (let i = 0; i <= 4; i++) { const v = y0 + (y1 - y0) * i / 4; s += `<line class="grid" x1="${pl}" x2="${w - pr}" y1="${Y(v)}" y2="${Y(v)}"/><text x="0" y="${Y(v) + 3}">${Math.round(v)}</text>`; }
   for (let i = 0; i <= 4; i++) { const v = x1 * i / 4; s += `<text x="${X(v)}" y="${h - 8}" text-anchor="middle">€${Math.round(v)}M</text>`; }
-  pts.forEach(p => (s += `<circle cx="${X(p.x)}" cy="${Y(p.y)}" r="5.5" fill="${p.color}" stroke="#03060c"><title>${esc(p.label)}</title></circle>`));
-  el.innerHTML = `<div class="chart">${s}</svg></div><div class="legend"><span><i style="background:#d4ff3a"></i>Builder</span><span><i style="background:#9b8cff"></i>Agent</span></div>`;
+  pts.forEach(p => (s += `<circle cx="${X(p.x)}" cy="${Y(p.y)}" r="5.5" fill="${p.color}" stroke="#0e1114"><title>${esc(p.label)}</title></circle>`));
+  el.innerHTML = `<div class="chart">${s}</svg></div><div class="legend"><span><i style="background:#d4772e"></i>Builder</span><span><i style="background:#a7b4c2"></i>Agent</span></div>`;
 }
 $("#histRows").onclick = e => { const b = e.target.closest("[data-load]"); if (!b) return; const h = S.history[+b.dataset.load];
   setView("pitch"); showResult(h.payload, h.source, false); };

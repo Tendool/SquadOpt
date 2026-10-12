@@ -5,7 +5,7 @@ export const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;"
 export const fmt = (n, dp = 1) => (n == null || Number.isNaN(+n) ? "–" : (+n).toFixed(dp));
 export const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const gsap = window.gsap;
-export const GROUP_COLOR = { GK: "#ffc23d", DEF: "#3fe0ff", MID: "#d4ff3a", FWD: "#ff5470" };
+export const GROUP_COLOR = { GK: "#c9a23a", DEF: "#5b8fbf", MID: "#4f9d69", FWD: "#c8584d" };
 
 export function toast(text, kind = "") {
   const el = document.createElement("div");
@@ -93,7 +93,7 @@ export function hbars(el, rows, unit = "€", suffix = "M") {
   el.innerHTML = rows.map(r => `<div class="hbar"><span>${esc(r.label)}</span><div class="tr">
       <i style="width:${r.a / max * 100}%;background:${r.color}"></i><i style="width:${r.b / max * 100}%;background:${r.color}"></i></div>
       <b>${unit}${fmt(r.a + r.b)}${suffix}</b></div>`).join("") +
-    `<div class="legend"><span><i style="background:#d4ff3a"></i>Starting XI</span><span><i style="background:#d4ff3a;opacity:.45"></i>Bench</span></div>`;
+    `<div class="legend"><span><i style="background:#d4772e"></i>Starting XI</span><span><i style="background:#d4772e;opacity:.45"></i>Bench</span></div>`;
   gsap.to($$(".tr i", el), { scaleX: 1, duration: REDUCED ? 0 : .9, stagger: .05, ease: "power3.out" });
 }
 
@@ -124,7 +124,7 @@ export function scatter(el, pts, xl, yl) {
   const st = Math.max(2, Math.ceil((x1 - x0) / 7));
   for (let v = Math.ceil(x0 / st) * st; v <= x1; v += st) s += `<text x="${X(v)}" y="${h - 10}" text-anchor="middle">${v}</text>`;
   s += `<text x="${w - pr}" y="${h}" text-anchor="end">${esc(xl)} →</text>`;
-  pts.forEach(p => (s += `<circle class="dotp" cx="${X(p.x)}" cy="${Y(p.y)}" r="${p.r || 4.5}" fill="${p.color}" fill-opacity=".85" stroke="#05080f"><title>${esc(p.label)}</title></circle>`));
+  pts.forEach(p => (s += `<circle class="dotp" cx="${X(p.x)}" cy="${Y(p.y)}" r="${p.r || 4.5}" fill="${p.color}" fill-opacity=".85" stroke="#0e1114"><title>${esc(p.label)}</title></circle>`));
   el.innerHTML = `<div class="chart">${s}</svg></div>`;
   gsap.from($$(".dotp", el), { attr: { r: 0 }, duration: REDUCED ? 0 : .6, stagger: .02, ease: "back.out(3)" });
 }
