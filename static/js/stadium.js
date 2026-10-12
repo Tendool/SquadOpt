@@ -27,7 +27,7 @@ const toWorld = (x, y) => new THREE.Vector3(-46 + y * 0.78, 0, (x - 50) * 0.64);
 
 const CAMS = {
   tactical: { pos: [-96, 74, 0], tgt: [-3, 0, 0] },
-  broadcast: { pos: [-9, 62, 110], tgt: [-9, 0, 4] },
+  broadcast: { pos: [-9, 70, 82], tgt: [-9, 0, 4] },          // presets sit inside the rim (see _cameraOk)
   top: { pos: [-9, 122, 1], tgt: [-9, 0, 0] },
   intro: { pos: [150, 120, 170], tgt: [0, 0, 0] },
 };
@@ -124,7 +124,11 @@ export class Stadium {
     c.enableDamping = true; c.dampingFactor = 0.07; c.enablePan = false;
     c.minDistance = 35; c.maxDistance = 240; c.maxPolarAngle = 1.42; c.autoRotateSpeed = 0.5;
     c.target.set(...CAMS.intro.tgt);
-    c.addEventListener("start", () => { if (this.view !== "orbit") c.autoRotate = false; gsap.killTweensOf(this.camera.position); gsap.killTweensOf(c.target); });
+    c.addEventListener("start", () => {
+      if (this.view !== "orbit") c.autoRotate = false;
+      if (this.view === "intro") this.view = "free";
+      gsap.killTweensOf(this.camera.position); gsap.killTweensOf(c.target); this._camTween = false;
+    });
 
     this.composer = new EffectComposer(r);
     this.composer.addPass(new RenderPass(sc, this.camera));
@@ -305,7 +309,9 @@ export class Stadium {
     if (name === "orbit") return;
     const v = CAMS[name], d = instant ? 0 : dur(name === "tactical" && this._fromIntro ? 2.6 : 1.6);
     this._fromIntro = false;
-    gsap.to(this.camera.position, { x: v.pos[0], y: v.pos[1], z: v.pos[2], duration: d, ease: "power3.inOut" });
+    this._camTween = d > 0;
+    gsap.to(this.camera.position, { x: v.pos[0], y: v.pos[1], z: v.pos[2], duration: d, ease: "power3.inOut", onComplete: () => (this._camTween = false),
+      onInterrupt: () => (this._camTween = false) });
     gsap.to(c.target, { x: v.tgt[0], y: v.tgt[1], z: v.tgt[2], duration: d, ease: "power3.inOut" });
   }
   intro() { this.view = "intro"; this._fromIntro = true; this.controls.autoRotate = true; this.controls.autoRotateSpeed = .35; }
@@ -468,6 +474,22 @@ export class Stadium {
     });
   }
 
+  /** The bowl is an elliptical cone (r 74 -> 118, height 34, z squashed by 0.74). A low orbit at a long distance puts the
+   *  camera outside or inside the stands, where the dark outer wall fills the view. Pull the camera towards the target
+   *  until it is inside the rim and above the seats. Skipped for the intro flyover and scripted camera moves. */
+  _cameraOk(p) {
+    const rho = Math.hypot(p.x / 118, p.z / (118 * .74));
+    return rho <= .627 || (rho <= .98 && p.y >= 34 * (rho - .627) / .373 + 4);
+  }
+  _keepInsideStadium() {
+    const cam = this.camera.position, tgt = this.controls.target;
+    if (this.view === "intro" || this._camTween || this._cameraOk(cam)) return;
+    const off = cam.clone().sub(tgt), p = cam.clone();
+    let lo = 0, hi = 1;
+    for (let i = 0; i < 18; i++) { const s = (lo + hi) / 2; p.copy(tgt).addScaledVector(off, s); this._cameraOk(p) ? (lo = s) : (hi = s); }
+    cam.copy(tgt).addScaledVector(off, lo);
+  }
+
   _pointer(e) {
     const r = this.canvas.getBoundingClientRect();
     this.mouse.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
@@ -490,6 +512,7 @@ export class Stadium {
     const dt = Math.min(this.clock.getDelta(), .05), t = this.clock.elapsedTime;
     this.frameMs = this.frameMs * .95 + dt * 1000 * .05;
     this.controls.update();
+    this._keepInsideStadium();
     for (const p of [...this.players, ...this.bench]) {
       const u = p.userData, sw = Math.sin(t * 13 + u.phase) * .75 * u.run;
       u.body.position.y = Math.sin(t * 2.2 + u.phase) * .04 + Math.abs(Math.sin(t * 13 + u.phase)) * .25 * u.run;

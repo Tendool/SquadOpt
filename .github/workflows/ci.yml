@@ -16,7 +16,7 @@ jobs:
       - name: Install
         run: pip install -r requirements-dev.txt
       - name: Model, API and agent tests (synthetic data, no LLM needed)
-        run: pytest -q
+        run: pytest -q -rf --tb=short
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
