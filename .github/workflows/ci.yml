@@ -6,19 +6,53 @@ on:
 
 jobs:
   test:
+    name: Model, API, agent and front-end unit tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
       - name: Install
         run: pip install -r requirements-dev.txt
-      - name: Model, API and agent tests (synthetic data, no LLM needed)
+      - name: Front-end syntax check
+        run: for f in static/js/*.js; do node --check "$f"; done
+      - name: Front-end unit tests
+        run: node --test "tests/js/*.test.mjs"
+      - name: Python tests (synthetic data, no LLM needed)
         run: pytest -q -rf --tb=short
+
+  e2e:
+    name: End-to-end in headless Chrome
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
           node-version: "22"
-      - name: Front-end syntax check
-        run: for f in static/js/*.js; do node --check "$f"; done
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install
+        run: pip install -r requirements.txt
+      - name: Start the app on synthetic data
+        run: |
+          python -c "from tests.synthetic import make_csv; make_csv('/tmp/synthetic.csv', 3000)"
+          FC26_CSV=/tmp/synthetic.csv PORT=5055 nohup python app.py > /tmp/app.log 2>&1 &
+          for i in $(seq 60); do curl -sf http://127.0.0.1:5055/api/meta > /dev/null && break; sleep 2; done
+      - name: Browser test
+        run: CHROME=$(which google-chrome) node tests/e2e/e2e.mjs
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-screenshots
+          path: tests/e2e/out/
+      - name: Server log
+        if: failure()
+        run: cat /tmp/app.log

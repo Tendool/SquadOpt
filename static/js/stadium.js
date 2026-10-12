@@ -6,23 +6,12 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+import { layout } from "./formation.js";
 
 const L = 105, W = 68, CROWD_MAX = 14000;
 const gsap = window.gsap;
 let REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const dur = s => (REDUCED ? 0 : s);
-
-/** Same geometry as squad_engine.lineup_layout: rows back->front, x across the row (0-100), y up the pitch (8-88). */
-export function layout(rows) {
-  const out = [], nR = rows.length;
-  rows.forEach((row, r) => {
-    const y = 8 + r * (80 / Math.max(nR - 1, 1));
-    row.forEach((t, j) => out.push({ type: t, x: (j + 1) * 100 / (row.length + 1), y, j, n: row.length }));
-  });
-  return out;
-}
-const SIDE = { FB: ["LB", "RB"], WB: ["LWB", "RWB"], WM: ["LM", "RM"], W: ["LW", "RW"] };
-export const slotName = (t, j) => (SIDE[t] ? SIDE[t][j === 0 ? 0 : 1] : t);
 const toWorld = (x, y) => new THREE.Vector3(-46 + y * 0.78, 0, (x - 50) * 0.64);
 
 const CAMS = {
@@ -64,14 +53,18 @@ function pitchTexture(renderer) {
   t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = renderer.capabilities.getMaxAnisotropy();
   return t;
 }
-function ledTexture() {
-  const c = document.createElement("canvas"); c.width = 2048; c.height = 64;
+function drawLed(c) {
   const g = c.getContext("2d");
   g.fillStyle = "#0b0d10"; g.fillRect(0, 0, c.width, c.height);
-  const words = ["SQUADOPT", "AHP", "INTEGER PROGRAMMING", "FC 26", "HiGHS", "EXPECTED QUALITY", "OPERATIONS RESEARCH", "QWEN AGENT"];
-  g.font = "800 italic 40px 'Barlow Condensed', sans-serif"; g.textBaseline = "middle";
-  let x = 20, k = 0;
-  while (x < c.width) { const w = words[k % words.length]; g.fillStyle = k % 2 ? "#e7e9ec" : "#d4772e"; g.fillText(w, x, 34); x += g.measureText(w).width + 46; g.fillStyle = "#ffffff55"; g.fillText("•", x - 30, 34); k++; }
+  const words = ["SquadOpt", "Integer programming", "FC 26", "HiGHS", "Expected quality", "Operations research", "Team AA01"];
+  g.font = "700 38px Archivo, sans-serif"; g.textBaseline = "middle";
+  if ("fontStretch" in g) g.fontStretch = "condensed";
+  let x = 24, k = 0;
+  while (x < c.width) { const w = words[k % words.length]; g.fillStyle = k % 2 ? "#e9eaec" : "#e26a2c"; g.fillText(w, x, 34); x += g.measureText(w).width + 56; k++; }
+}
+function ledTexture() {
+  const c = document.createElement("canvas"); c.width = 2048; c.height = 64;
+  drawLed(c);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = THREE.RepeatWrapping;
   return t;
 }
@@ -94,7 +87,7 @@ function numberTexture(n) {
   if (NUM_TEX.has(n)) return NUM_TEX.get(n);
   const c = document.createElement("canvas"); c.width = c.height = 128;
   const g = c.getContext("2d"); g.fillStyle = "#fff"; g.textAlign = "center"; g.textBaseline = "middle";
-  g.font = "800 92px 'Barlow Condensed', sans-serif"; g.fillText(String(n), 64, 70);
+  g.font = "700 88px Archivo, sans-serif"; if ("fontStretch" in g) g.fontStretch = "condensed"; g.fillText(String(n), 64, 70);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; NUM_TEX.set(n, t);
   return t;
 }
@@ -141,8 +134,8 @@ export class Stadium {
       socks: new THREE.MeshStandardMaterial({ roughness: .8 }), num: new THREE.Color("#141a2a"),
     };
     this.gkMats = {
-      shirt: new THREE.MeshStandardMaterial({ color: "#c9a23a", roughness: .5 }), shorts: new THREE.MeshStandardMaterial({ color: "#141821", roughness: .7 }),
-      socks: new THREE.MeshStandardMaterial({ color: "#c9a23a", roughness: .8 }), num: new THREE.Color("#141821"),
+      shirt: new THREE.MeshStandardMaterial({ color: "#d9a63c", roughness: .5 }), shorts: new THREE.MeshStandardMaterial({ color: "#141821", roughness: .7 }),
+      socks: new THREE.MeshStandardMaterial({ color: "#d9a63c", roughness: .8 }), num: new THREE.Color("#141821"),
     };
     this.matSkin = new THREE.MeshStandardMaterial({ color: "#c9cfdb", roughness: .55 });
     this.matBoot = new THREE.MeshStandardMaterial({ color: "#0b0e14", roughness: .4, metalness: .3 });
@@ -224,7 +217,7 @@ export class Stadium {
     this.roof = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: "#4a525c", transparent: true, opacity: .5, fog: false }));
     sc.add(this.roof);
     const n = CROWD_MAX, pos = new Float32Array(n * 3), col = new Float32Array(n * 3);
-    const pal = ["#d4772e", "#e7e9ec", "#5b8fbf", "#a8262b", "#c9a23a", "#6b7480", "#4a525c", "#2f353d"].map(h => new THREE.Color(h));
+    const pal = ["#e26a2c", "#e7e9ec", "#6f9fd8", "#a8262b", "#d9a63c", "#6b7480", "#4a525c", "#2f353d"].map(h => new THREE.Color(h));
     this.crowdBase = new Float32Array(n * 3);
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2, t = .06 + Math.random() * .9, rr = 74 + t * 44;
@@ -257,6 +250,8 @@ export class Stadium {
       return new THREE.Mesh(new THREE.PlaneGeometry(len, 1), new THREE.MeshBasicMaterial({ map: t, side: THREE.DoubleSide, toneMapped: false })); };
     for (const sz of [-1, 1]) { const b = mk(L + 6, 4); b.position.set(0, .5, sz * (W / 2 + 4)); if (sz > 0) b.rotation.y = Math.PI; this.scene.add(b); }
     for (const sx of [-1, 1]) { const b = mk(W - 10, 2.6); b.position.set(sx * (L / 2 + 4), .5, 0); b.rotation.y = sx * -Math.PI / 2; this.scene.add(b); }
+    // the canvas may have been drawn before the web font arrived: redraw once it has, and refresh shirt numbers too
+    document.fonts?.ready.then(() => { drawLed(base.image); this._leds.forEach(t => (t.needsUpdate = true)); NUM_TEX.clear(); });
   }
 
   _ball() {
@@ -269,7 +264,7 @@ export class Stadium {
 
   _scan() {
     this.scanRings = [0, 1, 2].map(i => {
-      const m = new THREE.Mesh(new THREE.RingGeometry(.96, 1, 96), new THREE.MeshBasicMaterial({ color: "#d4772e", transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }));
+      const m = new THREE.Mesh(new THREE.RingGeometry(.96, 1, 96), new THREE.MeshBasicMaterial({ color: "#e26a2c", transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }));
       m.rotation.x = -Math.PI / 2; m.position.y = .06; m.userData.phase = i / 3; this.scene.add(m); return m;
     });
   }
@@ -351,8 +346,8 @@ export class Stadium {
       const p = toWorld(s.x, s.y);
       gsap.to(gh.position, { x: p.x, z: p.z, duration: dur(.8), ease: "power3.inOut", delay: REDUCED ? 0 : i * .025 });
       gsap.to(gh.scale, { x: 1, y: 1, z: 1, duration: dur(.4) });
-      gh.userData.label.element.textContent = slotName(s.type, s.j);
-      gh.userData.disc.material.color.set(s.type === "GK" ? "#c9a23a" : "#ffffff");
+      gh.userData.label.element.textContent = s.label;
+      gh.userData.disc.material.color.set(s.type === "GK" ? "#d9a63c" : "#ffffff");
     });
     this.ghostsVisible(this.players.length === 0);
   }
@@ -457,10 +452,10 @@ export class Stadium {
     const arms = [-.72, .72].map(z => { const sh = new THREE.Group(); sh.position.set(0, 2.6, z); body.add(sh); add(this.geo.arm, M.shirt, 0, -.45, 0, sh); sh.rotation.x = z < 0 ? .12 : -.12; return sh; });
     const numMat = new THREE.MeshBasicMaterial({ map: numberTexture(number), color: M.num, transparent: true, depthWrite: false });
     const num = new THREE.Mesh(this.geo.num, numMat); num.position.set(-.57, 2.12, 0); num.rotation.y = -Math.PI / 2; body.add(num);
-    const ring = new THREE.Mesh(this.geo.ring, new THREE.MeshBasicMaterial({ color: p.req ? "#5b8fbf" : p.gk ? "#c9a23a" : "#d4772e", transparent: true, opacity: .75, depthWrite: false }));
+    const ring = new THREE.Mesh(this.geo.ring, new THREE.MeshBasicMaterial({ color: p.req ? "#6f9fd8" : p.gk ? "#d9a63c" : "#e26a2c", transparent: true, opacity: .75, depthWrite: false }));
     ring.rotation.x = -Math.PI / 2; ring.position.y = .04; g.add(ring);
     const el = document.createElement("div");
-    el.className = "plabel" + (p.gk ? " gk" : "") + (p.req ? " req" : "") + (isBench ? " bench" : "");
+    el.className = "plabel" + (p.gk ? " gk" : "") + (p.req ? " req" : "") + (isBench ? " bench" : "") + (p.listed === false ? " oop" : "");
     const rating = p.rating ?? p.Overall ?? p.overall;
     el.innerHTML = `<span class="top"><span class="rt">${Math.round(rating)}</span><span class="sl"></span></span><span class="nm"></span>`;
     el.querySelector(".nm").textContent = p.name ?? p.Player;

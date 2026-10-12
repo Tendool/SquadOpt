@@ -35,7 +35,7 @@ export function createAgent({ onSolving, onSquad, context, busy, sfx = { play() 
   function bubble(role, html) {
     const el = document.createElement("div");
     el.className = "msg " + (role === "user" ? "user" : "bot");
-    el.innerHTML = `<div class="av">${role === "user" ? "You"[0] : "Q"}</div><div class="bubble">${html}</div>`;
+    el.innerHTML = role === "user" ? `<div class="bubble">${html}</div>` : `<div class="who">Agent</div><div class="bubble">${html}</div>`;
     chat.append(el); gsap.from(el, { y: 10, opacity: 0, duration: REDUCED ? 0 : .3 }); scroll();
     return el;
   }
@@ -96,7 +96,7 @@ export function createAgent({ onSolving, onSquad, context, busy, sfx = { play() 
             else if (ev.name === "build_squad") {
               const a = ev.args, chips = [a.budget_m != null && `€${a.budget_m}M`, a.formation, ...(a.must_start || []).map(n => "★ " + n), ...(a.must_include || []).map(n => "+ " + n), ...(a.exclude || []).map(n => "− " + n),
                 a.max_age && `age ≤ ${a.max_age}`, a.squad_size && `${a.squad_size} players`, a.absence_risk != null && `p=${a.absence_risk}`].filter(Boolean);
-              step(box, "ok", IC.bolt, `Calling <b>build_squad</b> <span class="params">${chips.map(c => `<span>${esc(c)}</span>`).join("")}</span>`);
+              step(box, "ok", IC.bolt, `<b>Optimiser inputs</b> <span class="params">${chips.map(c => `<span>${esc(c)}</span>`).join("")}</span>`);
             }
             break;
           case "searched":
@@ -167,10 +167,10 @@ export function createAgent({ onSolving, onSquad, context, busy, sfx = { play() 
       const s = await fetch("/api/agent/status").then(r => r.json());
       ok = s.ok;
       pill.classList.toggle("ok", s.ok); pill.classList.toggle("bad", !s.ok);
-      $("span", pill).textContent = s.ok ? s.model : "Qwen offline";
-      pill.dataset.tip = s.ok ? `Agent model ${s.model} via Ollama` : s.error;
+      $("span", pill).textContent = s.ok ? "Agent ready" : "Agent offline";
+      pill.dataset.tip = s.ok ? `${s.model} via Ollama` : s.error;
       if (!s.ok && !$("#chat .err-box.status")) bubble("bot", `<div class="err-box status">${md(s.error)}</div>`);
-    } catch { ok = false; pill.classList.add("bad"); $("span", pill).textContent = "Qwen offline"; }
+    } catch { ok = false; pill.classList.add("bad"); $("span", pill).textContent = "Agent offline"; }
     return ok;
   }
 

@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SquadOpt — Squad Optimiser</title>
-<meta name="description" content="Budget-constrained football squad selection with an integer-programming model, a 3D stadium and a local Qwen agent.">
-<meta name="theme-color" content="#0e1114">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M4 2h18l6 6v22H10l-6-6z' fill='%23d4772e'/%3E%3Cpath d='M11 11h10v3H14v2h7v6H11v-3h7v-2h-7z' fill='%230e1114'/%3E%3C/svg%3E">
+<title>SquadOpt</title>
+<meta name="description" content="Pick the strongest football squad your budget can buy. An integer-programming model over the FC 26 player database, a 3D stadium and a local Qwen agent.">
+<meta name="theme-color" content="#0f1012">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230f1012'/%3E%3Ccircle cx='16' cy='16' r='10' fill='none' stroke='%23e26a2c' stroke-width='2.6'/%3E%3Cpath d='M16 6v20' stroke='%23e26a2c' stroke-width='2.6'/%3E%3Ccircle cx='16' cy='16' r='2.8' fill='%23e26a2c'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,400&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/css/app.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script type="importmap">
@@ -19,255 +19,283 @@
 </script>
 </head>
 <body class="booting">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-mark" viewBox="0 0 32 32"><circle cx="16" cy="16" r="12" fill="none" stroke="currentColor" stroke-width="2.6"/><path d="M16 4v24" stroke="currentColor" stroke-width="2.6"/><circle cx="16" cy="16" r="3" fill="currentColor"/></symbol>
+  <symbol id="i-sound" viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4zM15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></symbol>
+  <symbol id="i-mute" viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4zM22 9l-6 6M16 9l6 6"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9 7 7M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1"/></symbol>
+  <symbol id="i-keys" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+  <symbol id="i-cam-tac" viewBox="0 0 24 24"><path d="M4 20 8 4h8l4 16z"/><path d="M6 14h12"/></symbol>
+  <symbol id="i-cam-tv" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 12h18M12 6v12"/></symbol>
+  <symbol id="i-cam-top" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M5 12h14"/><circle cx="12" cy="12" r="2.5"/></symbol>
+  <symbol id="i-cam-orbit" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 4v12M6 11l6 6 6-6M5 20h14"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 4.5 3.4 8.2 8 9 4.6-.8 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+</svg>
+
 <canvas id="stage" aria-hidden="true"></canvas>
 <div id="labels" aria-hidden="true"></div>
 <div class="fallback" id="fallback" hidden><b>3D view unavailable</b><span>WebGL could not start in this browser. Everything else still works.</span></div>
 
-<!-- ============ START SCREEN ============ -->
-<section class="start" id="start" aria-label="Start screen">
-  <div class="start-side">
-    <header class="start-top">
-      <span class="wm"><span class="mark" aria-hidden="true"></span><span>Squad<b>Opt</b></span></span>
-      <span class="course">23MNG336<br>Operations Research</span>
-    </header>
-
-    <div class="start-copy">
-      <p class="issue">Matchday programme · FC 26 edition</p>
-      <h1 class="headline">Name the budget.<br><em>We’ll pick the eleven.</em></h1>
-      <p class="lede">An integer program weighs <span id="mPlayers">every</span> players across <span id="mForms">32</span> formations and returns the
-        strongest squad your money can buy, with a bench that covers every position and the players you insist on.</p>
-      <button class="kickoff" id="enter" type="button" disabled>
-        <svg class="ko-ring" viewBox="0 0 80 80" aria-hidden="true"><circle cx="40" cy="40" r="37"/><line x1="40" y1="3" x2="40" y2="77"/><circle class="spot" cx="40" cy="40" r="3.5"/></svg>
-        <span class="ko-text"><span>Warming up</span><small>loading the stadium</small></span>
-      </button>
-    </div>
-
-    <footer class="start-bottom">
-      <div class="teamsheet">
-        <h2>Team sheet <span>AA01</span></h2>
-        <ol><li><b>1</b>Rupali K</li><li><b>2</b>S Mahadev</li><li><b>3</b>Tendool Srivatsav</li><li><b>4</b>Sarang U</li></ol>
-      </div>
-      <div class="status">
-        <ul class="boot" id="boot">
-          <li data-k="stage"><i></i>Stadium <em>loading</em></li>
-          <li data-k="data"><i></i>Players <em>loading</em></li>
-          <li data-k="ai"><i></i>Agent <em>checking</em></li>
-        </ul>
-        <div class="bootbar"><i id="bootBar"></i></div>
-        <p class="snd">Headphones on. The crowd is listening.</p>
-      </div>
-    </footer>
+<!-- ============ TITLE ============ -->
+<section class="title" id="start" aria-label="Title screen">
+  <div class="title-brand">
+    <div class="lockup"><svg class="mark"><use href="#i-mark"/></svg><span>SquadOpt</span></div>
+    <p>Squad optimiser for FC 26</p>
+  </div>
+  <div class="title-action">
+    <p class="boot-text" id="bootText" aria-live="polite">Loading stadium</p>
+    <div class="bootbar"><i id="bootBar"></i></div>
+    <button class="press" id="enter" type="button" disabled>Press any key</button>
   </div>
 </section>
 
 <!-- ============ TOP BAR ============ -->
 <header class="topbar">
-  <div class="brand"><span class="mark" aria-hidden="true"></span><span>SQUAD<b>OPT</b></span></div>
-  <nav class="navtabs" id="views" role="tablist" aria-label="Views">
-    <button role="tab" data-view="pitch" aria-selected="true"><kbd>F1</kbd>Pitch</button>
-    <button role="tab" data-view="insights" aria-selected="false"><kbd>F2</kbd>Insights</button>
-    <button role="tab" data-view="compare" aria-selected="false"><kbd>F3</kbd>Compare</button>
-    <button role="tab" data-view="model" aria-selected="false"><kbd>F4</kbd>Model</button>
-    <i class="navind" aria-hidden="true"></i>
+  <div class="brand"><svg class="mark"><use href="#i-mark"/></svg><span>SquadOpt</span></div>
+  <nav class="tabs" id="views" role="tablist" aria-label="Views">
+    <button role="tab" data-view="pitch" aria-selected="true">Pitch</button>
+    <button role="tab" data-view="insights" aria-selected="false">Insights</button>
+    <button role="tab" data-view="compare" aria-selected="false">Compare</button>
+    <button role="tab" data-view="model" aria-selected="false">Model</button>
+    <i class="tab-ind" aria-hidden="true"></i>
   </nav>
-  <div class="tr">
-    <span class="pill" id="dataPill" data-tip="Dataset loaded by the Flask backend"><i class="dot"></i><span>connecting</span></span>
-    <span class="pill" id="aiPill" data-tip="Local LLM used by the agent"><i class="dot"></i><span>Qwen</span></span>
-    <button class="iconbtn" id="muteBtn" aria-label="Mute sound" data-tip="Sound (M)"><svg class="ic on" viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4zM15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></svg><svg class="ic off" viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4zM22 9l-6 6M16 9l6 6"/></svg></button>
-    <button class="iconbtn" id="settingsBtn" aria-label="Settings" data-tip="Settings"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
-    <button class="iconbtn" id="helpBtn" aria-label="Keyboard shortcuts" data-tip="Shortcuts (?)"><svg class="ic" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg></button>
+  <div class="tb-right">
+    <span class="status" id="dataPill" data-tip="Player database"><i class="dot"></i><span>Connecting</span></span>
+    <span class="status" id="aiPill" data-tip="Local agent"><i class="dot"></i><span>Agent</span></span>
+    <button class="icon-btn" id="muteBtn" aria-label="Sound on or off" data-tip="Sound · M"><svg class="ic on"><use href="#i-sound"/></svg><svg class="ic off"><use href="#i-mute"/></svg></button>
+    <button class="icon-btn" id="settingsBtn" aria-label="Settings" data-tip="Settings"><svg class="ic"><use href="#i-gear"/></svg></button>
+    <button class="icon-btn" id="helpBtn" aria-label="Keyboard shortcuts" data-tip="Shortcuts · ?"><svg class="ic"><use href="#i-keys"/></svg></button>
   </div>
 </header>
 
-<!-- ============ LEFT DOCK ============ -->
-<aside class="dock left panel" id="leftDock" aria-label="Match setup">
-  <div class="dock-h"><span class="dock-t">Match setup</span>
-    <div class="seg" role="tablist" aria-label="Mode">
-      <button role="tab" data-mode="build" aria-selected="true">Build</button>
-      <button role="tab" data-mode="agent" aria-selected="false"><span class="ai-dot"></span>Agent</button>
-    </div>
+<!-- ============ BUILDER ============ -->
+<aside class="panel left" id="leftDock" aria-label="Squad builder">
+  <div class="seg wide" id="modeSeg" role="tablist" aria-label="Mode">
+    <button role="tab" data-mode="build" aria-selected="true">Build</button>
+    <button role="tab" data-mode="agent" aria-selected="false">Ask the agent</button>
   </div>
 
   <section class="pane" id="buildPane">
-    <div class="sec">
-      <div class="sec-h"><b>01</b>Transfer budget<i></i></div>
-      <div class="budget"><span class="cur">€</span><input id="budget" type="number" min="20" max="5000" step="5" value="300" inputmode="decimal" aria-label="Transfer budget in millions of euros"><span class="unit">M</span></div>
-      <input class="range" id="slider" type="range" min="50" max="1500" step="5" value="300" aria-label="Budget slider">
-      <div class="chips" id="budgetChips"></div>
-    </div>
-
-    <div class="sec">
-      <div class="sec-h"><b>02</b>Formation<i></i>
-        <div class="seg mini" role="tablist" aria-label="Formation mode"><button data-fmode="pre" aria-selected="true">Presets</button><button data-fmode="cus" aria-selected="false">Custom</button></div>
+    <div class="pane-scroll">
+      <div class="field">
+        <div class="field-h"><h3>Budget</h3><span class="hint">transfer funds</span></div>
+        <label class="budget"><span>€</span><input id="budget" type="number" min="20" max="5000" step="5" value="300" inputmode="decimal" aria-label="Transfer budget in millions of euros"><span>M</span></label>
+        <input class="range" id="slider" type="range" min="50" max="1500" step="5" value="300" aria-label="Budget">
+        <div class="quick" id="budgetChips"></div>
       </div>
-      <div id="formPresets">
-        <div class="seg mini filt" id="backFilter" aria-label="Back line"><button data-back="all" aria-selected="true">All</button><button data-back="3" aria-selected="false">Back 3</button><button data-back="4" aria-selected="false">Back 4</button><button data-back="5" aria-selected="false">Back 5</button></div>
-        <div class="fgrid" id="formGrid"></div>
+
+      <div class="field">
+        <div class="field-h"><h3>Formation</h3><button class="link" type="button" id="browseForms">Browse all</button></div>
+        <div class="fstep">
+          <button class="icon-btn" type="button" id="formPrev" aria-label="Previous formation"><svg class="ic"><use href="#i-left"/></svg></button>
+          <div class="fstep-name"><b id="formName">4-3-3</b><span id="formVariant"></span></div>
+          <button class="icon-btn" type="button" id="formNext" aria-label="Next formation"><svg class="ic"><use href="#i-right"/></svg></button>
+        </div>
+        <div class="fpreview" id="formPreview"></div>
       </div>
-      <div id="formCustom" hidden><div id="lines"></div><div class="cnt" id="ccount"></div></div>
+
+      <div class="field">
+        <div class="field-h"><h3>Players</h3><span class="hint" id="picksHint">optional</span></div>
+        <div class="search" id="playerSearch">
+          <svg class="ic"><use href="#i-search"/></svg>
+          <input type="search" placeholder="Search a player, e.g. Messi" aria-label="Search players" autocomplete="off">
+          <ul class="results" role="listbox"></ul>
+        </div>
+        <ul class="picks" id="picks"></ul>
+      </div>
+
+      <details class="field rules">
+        <summary><h3>Squad rules</h3><span class="hint" id="rulesSummary"></span><svg class="ic chev"><use href="#i-right"/></svg></summary>
+        <div class="rule"><span>Squad size</span><div class="stepper" data-for="size"><button type="button" data-d="-1" aria-label="Fewer players"><svg class="ic"><use href="#i-minus"/></svg></button><output id="sizeV">23</output><button type="button" data-d="1" aria-label="More players"><svg class="ic"><use href="#i-plus"/></svg></button></div><input id="size" type="hidden" value="23" data-min="18" data-max="30"></div>
+        <div class="rule"><span>Oldest player</span><div class="stepper" data-for="age"><button type="button" data-d="-1" aria-label="Younger"><svg class="ic"><use href="#i-minus"/></svg></button><output id="ageV">32</output><button type="button" data-d="1" aria-label="Older"><svg class="ic"><use href="#i-plus"/></svg></button></div><input id="age" type="hidden" value="32" data-min="20" data-max="45"></div>
+        <div class="rule col"><div class="rule-top"><span>Absence risk</span><output id="pabsV">10%</output></div>
+          <input class="range" id="pabs" type="range" min="0" max="0.5" step="0.01" value="0.10" aria-label="Absence risk">
+          <small>Chance a player misses a match. Higher values buy a stronger bench.</small></div>
+      </details>
     </div>
-
-    <div class="sec">
-      <div class="sec-h"><b>03</b>Players<i></i></div>
-      <div class="ta" id="mustTa"><input type="search" placeholder="Require a player… (e.g. Messi)" aria-label="Search player to require" autocomplete="off"><ul class="ta-list" role="listbox"></ul></div>
-      <div class="chips sel" id="mustChips"></div>
-      <div class="ta" id="exclTa"><input type="search" placeholder="Exclude a player…" aria-label="Search player to exclude" autocomplete="off"><ul class="ta-list" role="listbox"></ul></div>
-      <div class="chips sel" id="exclChips"></div>
+    <div class="pane-foot">
+      <button class="primary" id="go" type="button"><span class="cta-t">Build squad</span></button>
+      <p class="foot-note">Searches every player for the optimal squad.</p>
     </div>
-
-    <details class="sec adv">
-      <summary class="sec-h"><b>04</b>Model settings<i></i><span class="chev" aria-hidden="true"></span></summary>
-      <div class="sl"><label for="size">Squad size <b id="sizeV">23</b></label><input class="range" id="size" type="range" min="18" max="30" value="23"></div>
-      <div class="sl"><label for="age">Max age <b id="ageV">32</b></label><input class="range" id="age" type="range" min="20" max="45" value="32"><small>45 = no limit. Required players are exempt.</small></div>
-      <div class="sl"><label for="pabs">Absence probability <b id="pabsV">10%</b></label><input class="range" id="pabs" type="range" min="0" max="0.5" step="0.01" value="0.10"><small>Chance a player misses a match. Higher values reward a stronger bench.</small></div>
-    </details>
-
-    <button class="cta" id="go" type="button"><span class="cta-t">Build squad</span><kbd>Ctrl ⏎</kbd><span class="cta-s" aria-hidden="true"></span></button>
   </section>
 
   <section class="pane" id="agentPane" hidden>
     <div class="chat" id="chat" aria-live="polite">
-      <div class="msg bot intro-msg"><div class="av">Q</div>
-        <div class="bubble"><p>Hi! Tell me your <b>budget</b>, your <b>style of play</b> and any <b>players you must have</b>. I'll turn it into inputs for the optimiser and explain the squad it builds.</p></div></div>
+      <div class="msg bot intro-msg"><div class="who">Agent</div>
+        <div class="bubble"><p>Tell me your budget, how you want to play and any players you must have. I'll set up the optimiser and explain the squad it builds.</p></div></div>
     </div>
     <div class="sugg" id="sugg"></div>
     <form class="composer" id="composer">
-      <textarea id="prompt" rows="2" placeholder="e.g. €400M, counter-attacking, Messi must be in the team" aria-label="Message the agent"></textarea>
+      <textarea id="prompt" rows="2" placeholder="€400M, counter-attacking, Messi must play" aria-label="Message the agent"></textarea>
       <div class="composer-row">
-        <label class="tog" data-tip="Let Qwen reason step by step first (slower)"><input type="checkbox" id="think"><span></span>Think</label>
-        <button type="button" class="btn ghost sm" id="newChat">New chat</button>
-        <button class="btn primary sm" id="send" type="submit">Send</button>
+        <label class="tog" data-tip="Let the model reason first (slower)"><input type="checkbox" id="think"><span></span>Think first</label>
+        <button type="button" class="btn-text" id="newChat">New chat</button>
+        <button class="primary sm" id="send" type="submit">Send</button>
       </div>
     </form>
   </section>
 </aside>
 
-<!-- ============ RIGHT DOCK ============ -->
-<aside class="dock right panel" id="rightDock" aria-label="Squad">
-  <div class="dock-h"><span class="dock-t">Squad</span><span class="dock-sub" id="formOut">—</span></div>
+<!-- ============ SQUAD ============ -->
+<aside class="panel right" id="rightDock" aria-label="Squad">
   <div class="empty" id="emptyState">
-    <div class="empty-ico" aria-hidden="true"><svg viewBox="0 0 120 80"><rect x="2" y="2" width="116" height="76" rx="3"/><line x1="60" y1="2" x2="60" y2="78"/><circle cx="60" cy="40" r="12"/><rect x="2" y="24" width="14" height="32"/><rect x="104" y="24" width="14" height="32"/></svg></div>
+    <svg class="mark big"><use href="#i-mark"/></svg>
     <h3>No squad yet</h3>
-    <p>Set a budget and a formation, or ask the agent. The optimiser searches every player for the best squad that fits.</p>
+    <p>Set a budget and a formation, then build. The optimiser checks every player and returns the best squad that fits.</p>
   </div>
   <div id="results" hidden>
-    <div class="teamrow">
-      <div class="badge-ovr" id="teamOvr"><b>0</b><span>XI OVR</span></div>
-      <div class="ring" id="ring"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="50" class="ring-bg"/><circle cx="60" cy="60" r="50" class="ring-fg" id="ringFg"/></svg>
-        <div class="ring-c"><b id="ringPct">0%</b><span>budget</span></div></div>
-      <div class="spend"><div class="big">€<span id="spent">0</span>M</div><div class="sub">of €<span id="budgetOut">0</span>M</div><div class="left" id="leftOut"></div></div>
+    <header class="res-h">
+      <div><h3 id="resForm">4-3-3</h3><span id="formOut"></span></div>
+      <button class="chip-btn" id="checksBtn" type="button" data-tip="Independent constraint checks"><svg class="ic"><use href="#i-shield"/></svg><span id="checksN">0</span></button>
+    </header>
+    <div class="rating-row">
+      <div class="xi-rating"><b id="teamOvr">0</b><span>XI rating</span></div>
+      <div class="spend">
+        <div class="spend-top"><span>Spent</span><b>€<span id="spent">0</span>M</b></div>
+        <div class="meter"><i id="meterFill"></i></div>
+        <div class="spend-sub"><span>of €<span id="budgetOut">0</span>M</span><span id="leftOut"></span></div>
+      </div>
     </div>
-    <div class="kpis" id="kpis"></div>
-    <div class="seg full mini" id="listTabs"><button data-list="xi" aria-selected="true">Starting XI</button><button data-list="bench" aria-selected="false">Bench</button><button data-list="all" aria-selected="false">All 23</button></div>
+    <dl class="stats" id="kpis"></dl>
+    <div class="seg sm" id="listTabs"><button data-list="xi" aria-selected="true">Starting XI</button><button data-list="bench" aria-selected="false">Bench</button><button data-list="all" aria-selected="false">All</button></div>
     <ul class="plist" id="plist"></ul>
-    <div class="foot-actions"><button class="btn ghost sm" id="copyBtn">Copy</button><button class="btn ghost sm" id="csvBtn">Export CSV</button><button class="btn ghost sm" id="checksBtn">Checks <span id="checksN"></span></button></div>
+    <div class="res-actions"><button class="btn-text" id="copyBtn" type="button"><svg class="ic"><use href="#i-copy"/></svg>Copy</button><button class="btn-text" id="csvBtn" type="button"><svg class="ic"><use href="#i-down"/></svg>Export CSV</button></div>
   </div>
 </aside>
 
-<!-- ============ HUD ============ -->
-<div class="hud panel" id="hud">
-  <div class="hud-l"><span class="hud-form" id="hudForm">4-3-3</span><span class="hud-sep"></span><span id="hudInfo">Preview</span></div>
-  <div class="seg mini" id="camSeg" aria-label="Camera"><button data-cam="tactical" aria-selected="true"><kbd>1</kbd>Tactical</button><button data-cam="broadcast" aria-selected="false"><kbd>2</kbd>Broadcast</button><button data-cam="top" aria-selected="false"><kbd>3</kbd>Top</button><button data-cam="orbit" aria-selected="false"><kbd>4</kbd>Orbit</button></div>
-  <div class="kits" id="kits" aria-label="Kit"></div>
+<!-- ============ CAMERA BAR ============ -->
+<div class="hud" id="hud">
+  <div class="cams" id="camSeg" role="group" aria-label="Camera">
+    <button data-cam="tactical" aria-selected="true" aria-label="Tactical camera" data-tip="Tactical · 1"><svg class="ic"><use href="#i-cam-tac"/></svg></button>
+    <button data-cam="broadcast" aria-selected="false" aria-label="Broadcast camera" data-tip="Broadcast · 2"><svg class="ic"><use href="#i-cam-tv"/></svg></button>
+    <button data-cam="top" aria-selected="false" aria-label="Top-down camera" data-tip="Top-down · 3"><svg class="ic"><use href="#i-cam-top"/></svg></button>
+    <button data-cam="orbit" aria-selected="false" aria-label="Orbit camera" data-tip="Orbit · 4"><svg class="ic"><use href="#i-cam-orbit"/></svg></button>
+  </div>
+  <span class="hud-sep"></span>
+  <div class="kits" id="kits" role="group" aria-label="Kit"></div>
 </div>
 
-<div class="solver" id="solver" hidden>
-  <div class="solver-card panel">
-    <div class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-    <div class="solver-txt"><div class="solver-h"><b>Optimising</b><span id="solverTime">0.0s</span></div><p id="solverMsg">Pruning dominated players, then solving the integer program with HiGHS…</p></div>
-  </div>
+<div class="solver" id="solver" hidden aria-live="polite">
+  <div class="solver-in"><span class="spinner" aria-hidden="true"></span>
+    <div class="solver-txt"><b>Optimising squad</b><span id="solverMsg"></span></div>
+    <span class="solver-time" id="solverTime">0.0s</span></div>
+  <div class="solver-bar"><i></i></div>
 </div>
 
 <div class="reveal" id="reveal" hidden aria-live="polite">
-  <div class="rv-wave" aria-hidden="true"></div>
-  <div class="rv-k">Squad ready</div>
-  <div class="rv-num" id="rvNum">0</div>
-  <div class="rv-l">XI rating</div>
-  <div class="rv-sub" id="rvSub"></div>
+  <div class="rv-card"><span class="rv-k">Squad ready</span><b class="rv-num" id="rvNum">0</b><span class="rv-l">Starting XI rating</span><span class="rv-sub" id="rvSub"></span></div>
 </div>
 
-<!-- ============ SHEETS ============ -->
-<section class="sheet panel" id="sheet-insights" hidden>
-  <header class="sheet-h"><h2>Insights</h2><p>What the optimiser bought and why.</p></header>
-  <div class="sheet-empty">Build a squad to see insights.</div>
-  <div class="grid3 sheet-body">
-    <article class="card"><h3>Where the money went</h3><div id="chMoney"></div></article>
-    <article class="card"><h3>Starting XI, slot by slot</h3><div id="chSlots"></div></article>
-    <article class="card"><h3>Value vs rating</h3><div id="chScatter"></div></article>
-    <article class="card wide"><h3>Bench cover per position</h3><p class="muted">Designated backup for each slot type, used in the expected-quality objective.</p><div id="chBackups"></div></article>
-    <article class="card"><h3>Age profile</h3><div id="chAge"></div></article>
+<!-- ============ VIEWS ============ -->
+<section class="sheet" id="sheet-insights" hidden>
+  <div class="sheet-in">
+    <header class="sheet-h"><h2>Insights</h2><p>Where the money went, and how strong each part of the squad is.</p></header>
+    <div class="sheet-empty">Build a squad to see insights.</div>
+    <div class="grid sheet-body">
+      <article class="card"><h3>Spend by line</h3><div id="chMoney"></div></article>
+      <article class="card"><h3>Starting XI by slot</h3><div id="chSlots"></div></article>
+      <article class="card"><h3>Value against rating</h3><div id="chScatter"></div></article>
+      <article class="card wide"><h3>Cover for every position</h3><p class="muted">The designated backup for each position, used in the expected-quality objective.</p><div id="chBackups"></div></article>
+      <article class="card"><h3>Ages</h3><div id="chAge"></div></article>
+    </div>
   </div>
 </section>
 
-<section class="sheet panel" id="sheet-compare" hidden>
-  <header class="sheet-h"><h2>Compare scenarios</h2><p>Every squad you build is saved here, so you can see how budget and formation change the result (RQ4).</p>
-    <button class="btn ghost sm" id="clearHist">Clear</button></header>
-  <div class="sheet-empty">No scenarios yet.</div>
-  <div class="sheet-body">
-    <article class="card"><h3>XI quality vs budget</h3><div id="chCompare"></div></article>
-    <article class="card"><div class="tw"><table class="tbl"><thead><tr><th></th><th>Source</th><th>Formation</th><th class="r">Budget</th><th class="r">Spent</th><th class="r">XI quality</th><th class="r">Expected</th><th class="r">P5</th><th class="r">Age</th><th>Required</th><th></th></tr></thead><tbody id="histRows"></tbody></table></div></article>
+<section class="sheet" id="sheet-compare" hidden>
+  <div class="sheet-in">
+    <header class="sheet-h"><h2>Compare</h2><p>Every squad you build is kept here, so you can see what more budget or a different shape buys.</p>
+      <button class="btn-text" id="clearHist" type="button">Clear history</button></header>
+    <div class="sheet-empty">No squads yet.</div>
+    <div class="sheet-body compare">
+      <article class="card"><h3>XI rating against budget</h3><div id="chCompare"></div></article>
+      <article class="card"><div class="tw"><table class="tbl"><thead><tr><th>Time</th><th>Source</th><th>Formation</th><th class="r">Budget</th><th class="r">Spent</th><th class="r">XI quality</th><th class="r">Expected</th><th class="r">Worst 5%</th><th class="r">Age</th><th>Required</th><th></th></tr></thead><tbody id="histRows"></tbody></table></div></article>
+    </div>
   </div>
 </section>
 
-<section class="sheet panel" id="sheet-model" hidden>
-  <header class="sheet-h"><h2>Inside the model</h2><p>The pipeline in <code>squad_engine.py</code>, with numbers from the latest run.</p></header>
-  <div class="sheet-body">
-    <div class="pipe" id="pipe"></div>
-    <div class="grid3">
-      <article class="card"><h3>1 · AHP player utility</h3><p class="muted">Pairwise judgments, then the principal eigenvector. Utility only breaks ties between squads that are equally strong.</p><div id="ahpBars"></div><div id="ahpMatrix"></div></article>
-      <article class="card"><h3>2 · Integrated ILP</h3><p class="muted">Selects the squad (x), the starting XI (y) and one designated backup per slot type (z) in a single model.</p>
-        <div class="formula">max (1−p)·Q<sub>XI</sub> + p·D<br><small>s.t. Σx = N, Σc·x ≤ B, slots filled exactly, y ≤ x, z ≤ x − Σy, group minimums, ≤ 3 GK</small></div><div id="ilpStats"></div></article>
-      <article class="card"><h3>3 · Evaluation</h3><p class="muted">Monte-Carlo: each player is missing with probability p. The best XI is re-picked from those available (Hungarian algorithm).</p><div id="evalStats"></div></article>
-      <article class="card wide"><h3>Constraint checks (independent re-computation)</h3><ul class="checks" id="checks"></ul></article>
-      <article class="card"><h3>Verified</h3><p class="muted">The test suite (<code>pytest</code>) checks on every change that pruning never changes the optimum, that HiGHS and CBC agree, and that every solution passes these checks.</p></article>
+<section class="sheet" id="sheet-model" hidden>
+  <div class="sheet-in">
+    <header class="sheet-h"><h2>Model</h2><p>How <code>squad_engine.py</code> chose this squad, with the numbers from the latest run.</p></header>
+    <div class="sheet-body">
+      <ol class="pipe" id="pipe"></ol>
+      <div class="grid">
+        <article class="card"><h3>Player utility (AHP)</h3><p class="muted">Pairwise judgments give the weights. Utility only breaks ties between squads that are equally strong.</p><div id="ahpBars"></div><div id="ahpMatrix"></div></article>
+        <article class="card"><h3>Integer program</h3><p class="muted">One model picks the squad (x), the starting XI (y) and a backup for every position (z).</p>
+          <div class="formula">maximise (1 − p)·Q<sub>XI</sub> + p·D<small>Σx = N · Σc·x ≤ B · every slot filled once · y ≤ x · z ≤ x − Σy · line minimums · at most 3 GK · left and right are separate positions</small></div><div id="ilpStats"></div></article>
+        <article class="card"><h3>Evaluation</h3><p class="muted">Each player misses a match with probability p; the best XI is re-picked from whoever is available, 200 times.</p><div id="evalStats"></div></article>
+        <article class="card wide"><h3>Constraint checks</h3><p class="muted">Recomputed independently from the returned squad.</p><ul class="checks" id="checks"></ul></article>
+        <article class="card"><h3>Verified</h3><p class="muted">The test suite checks on every change that pruning never changes the optimum, that HiGHS and CBC agree, that every starter is scored with that position's rating, and that every solution passes these checks.</p></article>
+      </div>
     </div>
   </div>
 </section>
 
 <!-- ============ DIALOGS ============ -->
-<dialog id="inspect" class="dlg panel inspect" aria-label="Player">
-  <button class="x" type="button" data-close aria-label="Close">×</button>
-  <div class="ins-grid"><div class="ins-card" id="insCard"></div><div class="ins-info" id="insInfo"></div></div>
-</dialog>
-
-<dialog id="settingsDlg" class="dlg panel" aria-label="Settings">
-  <button class="x" type="button" data-close aria-label="Close">×</button>
-  <h3>Settings</h3>
-  <div class="set-grid">
-    <section><div class="sec-h"><b>A</b>Audio<i></i></div>
-      <label class="tog row"><input type="checkbox" id="setMute"><span></span>Mute all sound</label>
-      <div class="sl"><label for="volMaster">Master <b id="volMasterV"></b></label><input class="range" id="volMaster" type="range" min="0" max="1" step="0.01"></div>
-      <div class="sl"><label for="volSfx">Effects <b id="volSfxV"></b></label><input class="range" id="volSfx" type="range" min="0" max="1" step="0.01"></div>
-      <div class="sl"><label for="volUi">Interface <b id="volUiV"></b></label><input class="range" id="volUi" type="range" min="0" max="1" step="0.01"></div>
-      <div class="sl"><label for="volAmb">Crowd ambience <b id="volAmbV"></b></label><input class="range" id="volAmb" type="range" min="0" max="1" step="0.01"></div>
-      <button class="btn ghost sm" type="button" id="testSound">Test sound</button>
-    </section>
-    <section><div class="sec-h"><b>B</b>Graphics<i></i></div>
-      <div class="seg full" id="qualSeg" aria-label="Graphics quality"><button data-q="low">Low</button><button data-q="medium">Medium</button><button data-q="high">High</button><button data-q="ultra">Ultra</button></div>
-      <p class="muted small">Bloom, shadows, light beams, crowd density and resolution.</p>
-      <label class="tog row"><input type="checkbox" id="setAuto"><span></span>Lower quality automatically if the frame rate drops</label>
-      <label class="tog row"><input type="checkbox" id="setLabels"><span></span>Player name labels on the pitch</label>
-      <label class="tog row"><input type="checkbox" id="setMotion"><span></span>Reduce motion</label>
-      <div class="fps" id="fpsOut">—</div>
-    </section>
+<dialog id="formsDlg" class="dlg wide" aria-label="Formations">
+  <header class="dlg-h"><h3>Formations</h3>
+    <div class="seg sm" id="formsTabs"><button data-ft="all" aria-selected="true">All</button><button data-ft="3" aria-selected="false">Back three</button><button data-ft="4" aria-selected="false">Back four</button><button data-ft="5" aria-selected="false">Back five</button><button data-ft="custom" aria-selected="false">Custom</button></div>
+    <button class="icon-btn" type="button" data-close aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button></header>
+  <div class="fgrid" id="formGrid"></div>
+  <div class="custom" id="formCustom" hidden>
+    <div class="custom-rows" id="lines"></div>
+    <div class="custom-side"><div id="customPreview"></div><p class="cnt" id="ccount"></p><button class="primary sm" type="button" id="useCustom" disabled>Use this shape</button></div>
   </div>
 </dialog>
 
-<dialog id="helpDlg" class="dlg panel" aria-label="Keyboard shortcuts">
-  <button class="x" type="button" data-close aria-label="Close">×</button>
-  <h3>Keyboard shortcuts</h3>
+<dialog id="inspect" class="dlg wide" aria-label="Player">
+  <button class="icon-btn x" type="button" data-close aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button>
+  <div class="ins-grid"><div class="ins-card" id="insCard"></div><div class="ins-info" id="insInfo"></div></div>
+</dialog>
+
+<dialog id="settingsDlg" class="dlg" aria-label="Settings">
+  <header class="dlg-h"><h3>Settings</h3><button class="icon-btn" type="button" data-close aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button></header>
+  <div class="set-group"><h4>Sound</h4>
+    <label class="tog row"><input type="checkbox" id="setMute"><span></span>Mute everything</label>
+    <div class="slider-row"><label for="volMaster">Master</label><input class="range" id="volMaster" type="range" min="0" max="1" step="0.01"><output id="volMasterV"></output></div>
+    <div class="slider-row"><label for="volSfx">Effects</label><input class="range" id="volSfx" type="range" min="0" max="1" step="0.01"><output id="volSfxV"></output></div>
+    <div class="slider-row"><label for="volUi">Interface</label><input class="range" id="volUi" type="range" min="0" max="1" step="0.01"><output id="volUiV"></output></div>
+    <div class="slider-row"><label for="volAmb">Crowd</label><input class="range" id="volAmb" type="range" min="0" max="1" step="0.01"><output id="volAmbV"></output></div>
+    <button class="btn-text" type="button" id="testSound">Play a test sound</button>
+  </div>
+  <div class="set-group"><h4>Graphics</h4>
+    <div class="seg wide" id="qualSeg" aria-label="Graphics quality"><button data-q="low">Low</button><button data-q="medium">Medium</button><button data-q="high">High</button><button data-q="ultra">Ultra</button></div>
+    <label class="tog row"><input type="checkbox" id="setAuto"><span></span>Lower quality automatically when the frame rate drops</label>
+    <label class="tog row"><input type="checkbox" id="setLabels"><span></span>Player names on the pitch</label>
+    <label class="tog row"><input type="checkbox" id="setMotion"><span></span>Reduce motion</label>
+    <p class="fps" id="fpsOut"></p>
+  </div>
+  <div class="set-group about"><h4>About</h4>
+    <p>SquadOpt is the 23MNG336 Operations Research project of team AA01, Amrita Vishwa Vidyapeetham, Coimbatore: Rupali K, S Mahadev, Tendool Srivatsav and Sarang U.</p>
+    <p class="muted">Player data: FC 26 (Kaggle). Solver: HiGHS via PuLP. Agent: Qwen 3.5 4B via Ollama. 3D: Three.js.</p>
+  </div>
+</dialog>
+
+<dialog id="helpDlg" class="dlg" aria-label="Keyboard shortcuts">
+  <header class="dlg-h"><h3>Keyboard shortcuts</h3><button class="icon-btn" type="button" data-close aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button></header>
   <dl class="keys">
-    <dt><kbd>Ctrl</kbd> <kbd>⏎</kbd></dt><dd>Build squad</dd>
-    <dt><kbd>1</kbd>–<kbd>4</kbd></dt><dd>Camera: tactical, broadcast, top, orbit</dd>
+    <dt><kbd>Ctrl</kbd><kbd>↵</kbd></dt><dd>Build squad</dd>
+    <dt><kbd>←</kbd><kbd>→</kbd></dt><dd>Previous or next formation</dd>
+    <dt><kbd>1</kbd>–<kbd>4</kbd></dt><dd>Camera: tactical, broadcast, top-down, orbit</dd>
     <dt><kbd>F1</kbd>–<kbd>F4</kbd></dt><dd>Pitch, Insights, Compare, Model</dd>
-    <dt><kbd>A</kbd></dt><dd>Switch between Build and Agent</dd>
-    <dt><kbd>M</kbd></dt><dd>Mute / unmute</dd>
-    <dt><kbd>?</kbd></dt><dd>This help</dd>
-    <dt><kbd>Esc</kbd></dt><dd>Close dialogs</dd>
+    <dt><kbd>A</kbd></dt><dd>Switch between Build and Ask the agent</dd>
+    <dt><kbd>M</kbd></dt><dd>Sound on or off</dd>
+    <dt><kbd>?</kbd></dt><dd>This list</dd>
   </dl>
 </dialog>
 
-<dialog id="checksDlg" class="dlg panel" aria-label="Constraint checks"><button class="x" type="button" data-close aria-label="Close">×</button><h3>Constraint checks</h3><ul class="checks" id="checksDlgList"></ul></dialog>
+<dialog id="checksDlg" class="dlg" aria-label="Constraint checks">
+  <header class="dlg-h"><h3>Constraint checks</h3><button class="icon-btn" type="button" data-close aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button></header>
+  <ul class="checks" id="checksDlgList"></ul>
+</dialog>
 
 <div class="tip" id="ptip" hidden></div>
 <div class="toasts" id="toasts" aria-live="polite"></div>
