@@ -74,6 +74,7 @@ async function boot() {
     ["size", "age", "pabs"].forEach(id => $("#" + id).dispatchEvent(new Event("input")));
     renderModelStatic(); applyFormation();
     bootStep("data", "ok", `${m.players.toLocaleString()} players`);
+    $("#mPlayers").textContent = m.players.toLocaleString(); $("#mForms").textContent = Object.keys(m.formations).length;
   } catch {
     $("#dataPill").classList.add("bad"); $("#dataPill span").textContent = "offline";
     bootStep("data", "bad", "backend offline");
@@ -82,7 +83,10 @@ async function boot() {
   renderHistory();
   const ai = await agent.checkStatus();
   bootStep("ai", ai ? "ok" : "warn", ai ? "ready" : "offline");
-  const btn = $("#enter"); btn.disabled = false; btn.querySelector("span").textContent = matchMedia("(pointer:coarse)").matches ? "Tap to start" : "Press any key";
+  $("#mAgent").textContent = ai ? "Qwen 3.5" : "Offline";
+  const btn = $("#enter"), touch = matchMedia("(pointer:coarse)").matches;
+  btn.disabled = false; btn.querySelector("span").textContent = "Enter stadium";
+  btn.querySelector("kbd").textContent = touch ? "tap" : "any key";
   addEventListener("keydown", enter, { once: true }); btn.addEventListener("click", enter, { once: true });
   $("#start").addEventListener("pointerdown", enter, { once: true });
 }

@@ -25,18 +25,29 @@
 
 <!-- ============ START SCREEN ============ -->
 <section class="start" id="start" aria-label="Start screen">
-  <div class="start-in">
-    <div class="kicker">23MNG336 · Operations Research · Team AA01</div>
-    <h1 class="logo" aria-label="SquadOpt"><span class="l1">SQUAD</span><span class="l2">OPT</span></h1>
-    <p class="tag">Name the budget. An integer program finds the eleven.</p>
-    <ul class="boot" id="boot">
-      <li data-k="stage"><i></i><span>Stadium engine</span><em>loading</em></li>
-      <li data-k="data"><i></i><span>Player database</span><em>loading</em></li>
-      <li data-k="ai"><i></i><span>Qwen agent</span><em>checking</em></li>
-    </ul>
-    <div class="bootbar"><i id="bootBar"></i></div>
-    <button class="press" id="enter" type="button" disabled><span>Loading</span></button>
-    <div class="start-foot"><svg class="ic" viewBox="0 0 24 24"><path d="M3 14v-2a9 9 0 0 1 18 0v2"/><rect x="2" y="14" width="5" height="7" rx="1"/><rect x="17" y="14" width="5" height="7" rx="1"/></svg>Best experienced with sound on</div>
+  <div class="start-card panel">
+    <header class="start-h"><span>23MNG336 · Operations Research</span><span>Team AA01</span></header>
+    <div class="start-body">
+      <h1 class="logo" aria-label="SquadOpt"><span class="l1">SQUAD</span><span class="l2">OPT</span></h1>
+      <div class="logo-sub">Squad optimiser · Integer programming · FC 26</div>
+      <p class="tag">Name the budget. The optimiser finds the eleven.</p>
+      <dl class="metrics">
+        <div><dt>Players</dt><dd id="mPlayers">—</dd></div>
+        <div><dt>Formations</dt><dd id="mForms">—</dd></div>
+        <div><dt>Solver</dt><dd>HiGHS</dd></div>
+        <div><dt>Agent</dt><dd id="mAgent">—</dd></div>
+      </dl>
+      <div class="sec-h boot-h"><b>SYS</b>System check<i></i></div>
+      <ul class="boot" id="boot">
+        <li data-k="stage"><i></i><code>01</code><span>3D stadium engine</span><em>loading</em></li>
+        <li data-k="data"><i></i><code>02</code><span>Player database</span><em>loading</em></li>
+        <li data-k="ai"><i></i><code>03</code><span>Qwen agent (Ollama)</span><em>checking</em></li>
+      </ul>
+      <div class="bootbar"><i id="bootBar"></i></div>
+      <button class="press" id="enter" type="button" disabled><span>Loading</span><kbd>any key</kbd></button>
+    </div>
+    <footer class="start-f"><span>Rupali K · S Mahadev · Tendool Srivatsav · Sarang U</span>
+      <span class="snd"><svg class="ic" viewBox="0 0 24 24"><path d="M3 14v-2a9 9 0 0 1 18 0v2"/><rect x="2" y="14" width="5" height="7" rx="1"/><rect x="17" y="14" width="5" height="7" rx="1"/></svg>Sound on recommended</span></footer>
   </div>
 </section>
 
