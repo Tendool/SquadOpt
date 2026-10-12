@@ -66,6 +66,22 @@ def _stats(i):
     return out
 
 
+POS_GRID = ["LW", "ST", "RW", "LM", "AM", "RM", "CM", "DM", "LWB", "RWB", "LB", "CB", "RB"]   # attack -> defence
+LAMBDA = 3                                                                                    # out-of-position penalty
+
+
+def listed_at(i, label):
+    """Is `label` (LB, RW, CM ...) one of the positions player i is listed for?"""
+    return bool(DF.natural[i] & se.NATURAL.get(label, {label}))
+
+
+def position_ratings(i):
+    """Calibrated rating of player i at every position, flagged when listed. This is what the optimiser uses
+    (minus LAMBDA when not listed), so the UI can show why a player plays where."""
+    labels = ["GK"] if DF.group[i] == "GK" else POS_GRID
+    return [[t, int(round(DF["r_" + t].iat[i])), listed_at(i, t)] for t in labels]
+
+
 def player_card(i):
     return dict(id=int(i), name=DF.short_name[i], long_name=DF.long_name[i], age=int(DF.age[i]), club=str(CLUB[i]),
                 positions=DF.player_positions[i], overall=int(DF.overall[i]), potential=int(DF.potential[i]),
@@ -138,7 +154,7 @@ def solve(P):
     try:
         with LOCK:
             out = se.run_scenario(DF, P["form"], P["budget"], N=P["N"], p_abs=P["p_abs"], max_age=P["max_age"],
-                                  must=P["must"], banned=P["banned"], must_start=P["start"], time_limit=TIME_LIMIT)
+                                  must=P["must"], banned=P["banned"], must_start=P["start"], time_limit=TIME_LIMIT, sides=True)
     except ValueError as e:                           # e.g. a required starter who has no eligible slot
         return None, (str(e), 422)
     if out is None:
@@ -152,12 +168,15 @@ def solve(P):
     pitch = []
     for q in se.lineup_layout(d, r):
         c = player_card(q["i"])
-        pitch.append(dict(c, x=q["x"], y=q["y"], slot=q["slot"], rating=clean(q["eff"])))
+        listed = q["slot"] == "GK" or listed_at(q["i"], q["slot"])
+        pitch.append(dict(c, x=q["x"], y=q["y"], slot=q["slot"], rating=clean(q["eff"]), listed=listed,
+                          slot_base=int(round(DF["r_" + q["slot"]].iat[q["i"]])) if "r_" + q["slot"] in DF else None))
     sq = out["squad"].reset_index().rename(columns={"index": "id"})
     squad = [{k: clean(v) for k, v in row.items()} for row in sq.to_dict("records")]
     for s in squad:
         i = s["id"]
-        s.update(group=DF.group[i], club=str(CLUB[i]), required=i in P["must"], nation=str(NATION[i]), foot=str(FOOT[i]), stats=_stats(i))
+        s.update(group=DF.group[i], club=str(CLUB[i]), required=i in P["must"], nation=str(NATION[i]), foot=str(FOOT[i]), stats=_stats(i),
+                 pos_ratings=position_ratings(i))
     model = dict(pool_size=r["pool_size"], n_vars=r["n_vars"], n_cons=r["n_cons"], n_pairs=r["n_pairs"], n_bpairs=r["n_bpairs"],
                  xi_quality=clean(r["xi_quality"]), depth=clean(r["depth"]), eq=clean(r["eq"]), p_abs=r["p_abs"], util=clean(r["util"]),
                  statuses=[[s, round(t, 2)] for s, t in r["statuses"]], time_limit_hit=bool(r["time_limit_hit"]),

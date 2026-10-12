@@ -1,9 +1,12 @@
 """squad_engine.py -- the optimisation model, extracted automatically from or_final.ipynb (cells 3-11, 12, 78).
-Nothing about the maths is changed. Needs PuLP 3.x (pip install "pulp<4" highspy).
-Website extension (not in the notebook): optimise / run_scenario / validate accept `must` (player rows forced into the
-squad, x_i = 1, exempt from the age limit), `must_start` (forced into the XI, sum_t y_it = 1) and `banned` (rows removed
-from the pool). With all three empty the model is identical.
-If only the AHP tie-break (stage 2) hits the time limit, the stage-1 optimal squad is kept (tiebreak_done=False) instead of None."""
+Needs PuLP 3.x (pip install "pulp<4" highspy).
+Website extensions (not in the notebook; with their defaults the model is identical to the notebook):
+  * optimise / run_scenario / validate accept `must` (player rows forced into the squad, x_i = 1, exempt from the age
+    limit), `must_start` (forced into the XI, sum_t y_it = 1) and `banned` (rows removed from the pool);
+  * `sides=True` makes left and right flanks separate slot types (LB/RB, LWB/RWB, LM/RM, LW/RW), so a right-back is
+    not played at left-back for free and the pitch shows every player on a side he or she is listed on;
+  * if only the AHP tie-break (stage 2) hits the time limit, the stage-1 optimal squad is kept (tiebreak_done=False);
+  * exact starter pruning (prune_starters) and a prune=False switch used by the tests."""
 import pulp
 if int(pulp.__version__.split(".")[0]) >= 4:
     raise ImportError("PuLP 4 is not supported by this model. Run:  pip install 'pulp<4' highspy")
@@ -103,6 +106,34 @@ FAMILY = {"FB": "FB", "WB": "FB", "CB": "CB", "DM": "DM", "CM": "CM", "AM": "AM"
 FAMILIES = ["FB", "CB", "DM", "CM", "AM", "WIDE", "ST"]
 FILLER = 55.0          # rating of an emergency academy player used when a squad cannot fill a slot (simulation only)
 
+# ---- website: side-specific slot types ---------------------------------------------------------------------------
+# The notebook's FB/WB/WM/W each cover both flanks, so a squad could field two right-backs and play one on the left
+# with no penalty. With optimise(..., sides=True) each flank is its own slot type: the left/right rating column is used
+# and an unlisted flank costs the same lambda penalty as any other unlisted position. sides=False keeps the notebook model.
+SIDE_OF = {"FB": ("LB", "RB"), "WB": ("LWB", "RWB"), "WM": ("LM", "RM"), "W": ("LW", "RW")}
+MERGED_OF = {s: t for t, pair in SIDE_OF.items() for s in pair}
+SIDE_TYPES = [s for pair in SIDE_OF.values() for s in pair]                     # LB RB LWB RWB LM RM LW RW
+ALL_TYPES = TYPES + SIDE_TYPES
+RATING_COL.update(LB="lb", RB="rb", LWB="lwb", RWB="rwb", LM="lm", RM="rm", LW="lw", RW="rw")
+NATURAL.update(LB={"LB"}, RB={"RB"}, LWB={"LB"}, RWB={"RB"}, LM={"LM"}, RM={"RM"}, LW={"LW"}, RW={"RW"})
+GROUP_OF_TYPE.update({s: GROUP_OF_TYPE[t] for s, t in MERGED_OF.items()})
+WB_OFFSET_FROM = {"WB": "FB", "LWB": "LB", "RWB": "RB"}   # nobody lists LWB/RWB: borrow the full-back calibration
+
+
+def sided_rows(rows):
+    """Formation rows with flank types made side-specific by where they stand in the row (left of centre -> left)."""
+    out = []
+    for row in rows:
+        new, c = list(row), (len(row) - 1) / 2
+        for t, (left, right) in SIDE_OF.items():
+            idx = [j for j, x in enumerate(row) if x == t]
+            if len(idx) >= 2:
+                new[idx[0]], new[idx[-1]] = left, right
+            elif len(idx) == 1 and idx[0] != c:
+                new[idx[0]] = left if idx[0] < c else right
+        out.append(new)
+    return out
+
 
 import itertools as _it
 _TOK = _it.count(1)
@@ -130,21 +161,22 @@ def load_players(path, rating_mode="calibrated", value_policy="impute"):
     assert df.group.notna().all(), "unknown primary position label"
     df["natural"] = df.player_positions.apply(lambda s: {p.strip() for p in s.split(",")})
     offsets, ratings = {}, {}
-    for t in TYPES:
-        base, mod = split_rating(df[RATING_COL[t]])
+    for t in ALL_TYPES:                    # website: also the side-specific types (right columns fall back to the left)
+        col = RATING_COL[t] if RATING_COL[t] in df else RATING_COL[MERGED_OF[t]]
+        base, mod = split_rating(df[col])
         if rating_mode == "raw_sum":
             ratings[t] = (base + mod).astype(float); offsets[t] = np.nan
         elif rating_mode == "base":
             ratings[t] = base.astype(float); offsets[t] = 0
         else:
-            if t == "WB":   # nobody lists LWB/RWB as a position: borrow the full-back offset
-                offsets[t] = offsets["FB"]
+            if t in WB_OFFSET_FROM:   # nobody lists LWB/RWB as a position: borrow the full-back offset
+                offsets[t] = offsets[WB_OFFSET_FROM[t]]
             else:
                 idx = prim.isin(NATURAL[t])
-                offsets[t] = int(round((df.overall - base)[idx].mean()))
+                offsets[t] = int(round((df.overall - base)[idx].mean())) if idx.any() else offsets.get(MERGED_OF.get(t), 0)
             ratings[t] = (base + offsets[t]).astype(float)
     R = pd.DataFrame(ratings)
-    for t in TYPES:
+    for t in ALL_TYPES:
         df["r_" + t] = R[t].values
     df["value_missing"] = df.value_eur <= 0
     df["value_m"] = df.value_eur / 1e6
@@ -228,7 +260,7 @@ def validate_formation(rows):
     c = formation_counts(rows)
     assert sum(c.values()) == 11, "A formation needs exactly 11 slots"
     assert c.get("GK", 0) == 1, "A formation needs exactly one GK"
-    assert all(t in TYPES + ["ANY"] for t in c), f"Unknown slot type. Allowed: {TYPES}"
+    assert all(t in ALL_TYPES + ["ANY"] for t in c), f"Unknown slot type. Allowed: {ALL_TYPES}"
     return c
 # ======== notebook cell 7 ========
 # ---------------------------------------------------------------- 4. EFFECTIVE RATINGS
@@ -257,7 +289,7 @@ def eff_table(df, lam, strict):
     key = (_token(df), lam, strict)
     if key not in _EFF_CACHE:
         out = {}
-        for t in TYPES:
+        for t in ALL_TYPES:
             r, ok = effective_rating(df, t, lam, strict)
             out[t] = np.where(ok, r, np.nan)
         _EFF_CACHE[key] = out
@@ -332,15 +364,18 @@ def optimise(df, formation, N=23, budget=500.0, lam=3, strict=False, floor=70,
              objective="expected", p_abs=0.10, delta=0.0, tiebreak=True, cover="auto", gk_max=3,
              max_age=None, cost=None, backup_floor=65, bench_col="ahp", bench_mode="utility",
              time_limit=120, nogood=None, reference=False, stage2=True, must=None, banned=None, must_start=None,
-             prune=True, prune_starters=True):
+             prune=True, prune_starters=True, sides=False):
     """objective:
          'xi'        stage 1 only: maximise the starting-XI rating sum Q_XI                    (stage2=False also gives this)
          'xi_first'  v2 model: Q_XI first, then sum of AHP utility with Q_XI >= Q* - delta
          'expected'  v3 model: maximise first-order expected XI quality under player absence probability p_abs
                          EQ = (1-p) Q_XI + p D ,  D = sum_t n_t * rating of the designated backup of slot type t
                      then (tiebreak=True) among EQ-optimal squads maximise the AHP utility.
-       reference=True also solves stage 1 so that 'q_xi_max' (the price of depth) is reported."""
+       reference=True also solves stage 1 so that 'q_xi_max' (the price of depth) is reported.
+       sides=True (website): left and right flanks are separate slot types (see sided_rows)."""
     rows = FORMATIONS[formation] if isinstance(formation, str) else formation
+    if sides:
+        rows = sided_rows(rows)
     cnt = validate_formation(rows)
     mins = default_cover(rows, N) if cover == "auto" else (cover or {})
     n = len(df)
@@ -740,19 +775,36 @@ def evaluate_squad(df, squad, formation, p=0.10, S=300, seed=7, lam=3, label="",
 # ======== notebook cell 12 (UI helpers) ========
 SIDE_LABEL = {"FB": ("LB", "RB"), "WB": ("LWB", "RWB"), "WM": ("LM", "RM"), "W": ("LW", "RW")}
 
+def _side_fit(d, i, label):
+    """website: how well player i suits a flank label: listed there (3) > preferred foot on that side (1) > neither (0).
+    3 > 1 + 1, so the arrangement with the most players on a listed side always wins."""
+    if d.natural[i] & NATURAL.get(label, set()):
+        return 3
+    return int((label[0] == "L") == (d.preferred_foot[i] == "Left"))
+
+
 def lineup_layout(d, res):
     pools = {}
     for i, t in res["xi"]:
         pools.setdefault(t, []).append((i, res["eff"][(i, t)]))
     for t in pools:
         pools[t].sort(key=lambda p: (d.preferred_foot[p[0]] != "Left", d.short_name[p[0]]))
-    out, nR = [], len(res["rows"])
-    for r_idx, row in enumerate(res["rows"]):
+    out, rows = [], res["rows"]
+    labels = sided_rows(rows)          # website: flank slots are labelled by the side they stand on
+    nR = len(rows)
+    for r_idx, row in enumerate(rows):
         y = 8 + r_idx * (80 / max(nR - 1, 1))
+        picks = {}
+        for t in dict.fromkeys(row):
+            js = [j for j, x in enumerate(row) if x == t]
+            chosen = [pools[t].pop(0) for _ in js]
+            if t in SIDE_OF and len(js) > 1:   # merged flank type: put each player on the side he or she is listed on
+                chosen = list(max(itertools.permutations(chosen),
+                                  key=lambda perm: sum(_side_fit(d, p[0], labels[r_idx][j]) for p, j in zip(perm, js))))
+            picks.update(zip(js, chosen))
         for j, t in enumerate(row):
-            i, e = pools[t].pop(0)
-            lab = SIDE_LABEL[t][0 if j == 0 else 1] if t in SIDE_LABEL else t
-            out.append(dict(x=(j + 1) * 100 / (len(row) + 1), y=y, slot=lab, i=i, eff=e))
+            i, e = picks[j]
+            out.append(dict(x=(j + 1) * 100 / (len(row) + 1), y=y, slot=labels[r_idx][j], i=i, eff=e))
     return out
 
 def squad_table(d, res):
@@ -773,17 +825,17 @@ def squad_table(d, res):
 
 # ======== notebook cell 78 ========
 def run_scenario(df, formation, budget, N=23, lam=3, p_abs=0.10, max_age=None, overall_weight=None, strict=False, objective="expected", delta=0.0,
-                 must=None, banned=None, must_start=None, time_limit=60):
+                 must=None, banned=None, must_start=None, time_limit=60, sides=False):
     # Everything a UI needs for one scenario, returned as plain tables + the result object.
     d = df
     if overall_weight is not None:
         w0, _ = ahp_weights(AHP_MATRIX); d = df.copy()
         set_ahp(d, np.r_[overall_weight, w0[1:] / w0[1:].sum() * (1 - overall_weight)])
     r = optimise(d, formation, N, budget, lam=lam, p_abs=p_abs, max_age=max_age, strict=strict, objective=objective, delta=delta, time_limit=time_limit,
-                 must=must, banned=banned, must_start=must_start)
+                 must=must, banned=banned, must_start=must_start, sides=sides)
     if r is None:
         return None
-    ev = evaluate_squad(d, r["squad"], formation, p=p_abs, S=200, lam=lam)
+    ev = evaluate_squad(d, r["squad"], r["rows"], p=p_abs, S=200, lam=lam)   # the rows the model solved (sided if sides=True)
     return {"result": r, "df": d, "squad": squad_table(d, r), "checks": validate(d, r, lam=lam, strict=strict, max_age=max_age),
             "kpis": {"Squad value (€M)": r["cost"], "Remaining budget (€M)": budget - r["cost"], "XI quality": r["xi_quality"], "Average XI rating": r["xi_quality"] / 11,
                      f"Expected quality (p={p_abs:.0%})": ev[f"E[Q] (p={p_abs:.0%})"], "5th-percentile quality": ev["P5"], "Mean age": ev["Mean age"]}}

@@ -137,3 +137,90 @@ def test_monte_carlo_is_reproducible(se, df):
     b = se.evaluate_squad(df, r["squad"], "4-3-3", S=100)
     assert a == b
     assert a["P5"] <= a["E[Q] (p=10%)"] <= a["XI quality"] + 1e-9
+
+
+# ---------------------------------------------------------------- side-specific positions (sides=True, used by the website)
+def test_sided_rows(se):
+    rows = se.sided_rows(se.FORMATIONS["4-3-3"])
+    assert rows == [["GK"], ["LB", "CB", "CB", "RB"], ["CM", "CM", "CM"], ["LW", "ST", "RW"]]
+    assert se.sided_rows([["GK"], ["W", "ST", "ST"]])[1] == ["LW", "ST", "ST"]          # single flank left of centre
+    assert se.sided_rows([["GK"], ["ST", "W", "ST"]])[1] == ["ST", "W", "ST"]           # dead centre stays generic
+
+
+@pytest.mark.parametrize("form,budget,kw", SCENARIOS[:4])
+def test_sides_pruning_exact_and_valid(se, df, form, budget, kw):
+    full = se.optimise(df, form, 23, budget, prune=False, sides=True, **kw)
+    fast = se.optimise(df, form, 23, budget, sides=True, **kw)
+    assert fast["eq"] == pytest.approx(full["eq"], abs=1e-6) and fast["util"] == pytest.approx(full["util"], abs=1e-4)
+    checks = se.validate(df, fast, max_age=kw.get("max_age"))
+    assert all(ok for _, ok in checks), [n for n, ok in checks if not ok]
+
+
+def test_sides_highs_and_cbc_agree(se, df, monkeypatch):
+    highs = se.optimise(df, "4-4-2", 23, 150, sides=True)
+    monkeypatch.setattr(se, "get_solver", lambda time_limit=120: pulp.PULP_CBC_CMD(msg=False, timeLimit=300))
+    cbc = se.optimise(df, "4-4-2", 23, 150, sides=True)
+    assert highs["eq"] == pytest.approx(cbc["eq"], abs=1e-6)
+
+
+@pytest.mark.parametrize("form", ["4-3-3", "4-4-2", "3-4-3", "5-3-2", "4-2-3-1", "3-5-2"])
+def test_every_starter_uses_that_position_rating(se, df, form):
+    """The rating a starter contributes is exactly the dataset rating for that slot, minus 3 only if not listed there."""
+    r = se.optimise(df, form, 23, 200, sides=True)
+    for i, t in r["xi"]:
+        listed = bool(df.natural[i] & se.NATURAL[t])
+        assert r["eff"][(i, t)] == pytest.approx(df["r_" + t][i] - (0 if listed else 3)), (df.short_name[i], t)
+
+
+@pytest.mark.parametrize("form", ["4-3-3", "4-4-2", "3-4-3", "4-2-3-1"])
+def test_pitch_labels_are_the_solved_positions(se, df, form):
+    r = se.optimise(df, form, 23, 200, sides=True)
+    solved = {i: t for i, t in r["xi"]}
+    for q in se.lineup_layout(df, r):
+        assert q["slot"] == solved[q["i"]]
+
+
+def test_right_sided_star_starts_on_the_right(se, df):
+    r = se.optimise(df, "4-3-3", 23, 300, must_start=[0], sides=True)       # L. Messi: listed RW, CAM; left-footed
+    assert dict((i, t) for i, t in r["xi"])[0] == "RW"
+
+
+def test_merged_mode_layout_respects_listed_side(se, df):
+    """Notebook mode (sides=False): the model may pick two players for one flank pair; the layout must arrange each
+    pair so that as many of them as possible stand on a side they are listed for."""
+    listed = lambda i, lab: bool(df.natural[i] & se.NATURAL[lab])
+    other = lambda lab: {"L": "R", "R": "L"}[lab[0]] + lab[1:]
+    for form in ["4-3-3", "4-4-2", "4-2-3-1", "3-4-3"]:
+        lay = {q["slot"]: q["i"] for q in se.lineup_layout(df, se.optimise(df, form, 23, 250))}
+        for lab, i in lay.items():
+            if lab in se.SIDE_TYPES and lab[0] == "L" and other(lab) in lay:
+                j = lay[other(lab)]
+                assert listed(i, lab) + listed(j, other(lab)) >= listed(j, lab) + listed(i, other(lab)), (form, lab)
+
+
+# ---------------------------------------------------------------- randomised scenarios
+@pytest.mark.parametrize("seed", range(12))
+def test_random_scenarios_are_valid_and_exact(se, df, seed):
+    rng = np.random.default_rng(seed)
+    form = rng.choice(sorted(se.FORMATIONS))
+    budget = float(rng.choice([90, 130, 200, 320]))
+    stars = list(range(10))
+    kw = {}
+    if rng.random() < .5:
+        kw["must_start"] = [int(rng.choice(stars))]
+    if rng.random() < .4:
+        kw["banned"] = [int(x) for x in rng.choice([s for s in stars if s not in kw.get("must_start", [])], 2, replace=False)]
+    if rng.random() < .4:
+        kw["max_age"] = int(rng.choice([25, 28, 31]))
+    try:
+        r = se.optimise(df, form, 23, budget, sides=True, **kw)
+    except ValueError:                                   # a required starter with no eligible slot in this shape
+        return
+    if r is None:
+        assert se.LAST_STATUSES[-1][0] == "Infeasible"
+        return
+    checks = se.validate(df, r, max_age=kw.get("max_age"))
+    assert all(ok for _, ok in checks), (form, kw, [n for n, ok in checks if not ok])
+    if seed % 3 == 0:                                    # spot-check optimality against the unpruned model
+        full = se.optimise(df, form, 23, budget, sides=True, prune=False, **kw)
+        assert r["eq"] == pytest.approx(full["eq"], abs=1e-6)

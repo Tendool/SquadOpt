@@ -68,7 +68,10 @@ def make_frame(n=3000, seed=1):
                          dribbling=int(np.clip(ov + rng.normal(0, 5), 25, 95)), defending=int(np.clip(ov + rng.normal(-12, 12), 20, 92)),
                          physic=int(np.clip(ov + rng.normal(-4, 7), 30, 92)),
                          **{c: f"{a}+{b}" for c, (a, b) in ratings(pos, ov).items()}))
-    return pd.DataFrame(rows)
+    df = pd.DataFrame(rows)
+    for left, right in (("lb", "rb"), ("lwb", "rwb"), ("lm", "rm"), ("lw", "rw")):
+        df[right] = df[left]                          # FC position ratings are side-symmetric, like the real dataset
+    return df
 
 
 def make_csv(path, n=3000, seed=1):
