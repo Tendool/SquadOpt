@@ -37,8 +37,8 @@ pip install -r requirements.txt
 python app.py
 ```
 
-Open http://127.0.0.1:5000. Put the dataset in `data/FC26_20250921.csv` first (see [data/README.md](data/README.md)),
-or set `FC26_CSV=path/to/file.csv`. Each optimisation takes roughly 10–60 s.
+Open http://127.0.0.1:5000. The dataset is included as `data/FC26_20250921.csv` (CC BY 4.0, see
+[data/README.md](data/README.md)); set `FC26_CSV=path/to/file.csv` to use another copy. Each optimisation takes roughly 10–60 s.
 
 ### The agent (optional)
 
@@ -127,7 +127,7 @@ squad_engine.py     The optimisation model (from or_final.ipynb, plus marked "we
 agent.py            Qwen tool-calling agent via Ollama
 static/             index.html, css/app.css, js/{main,stadium,formation,audio,agent,card,settings,ui}.js
 tests/              pytest suite, synthetic data, js/ unit tests, e2e/ browser test
-data/               put the FC 26 CSV here (not committed)
+data/               FC 26 player CSV (CC BY 4.0, from Kaggle)
 ```
 
 Three.js 0.169, GSAP 3.12 and the Archivo font load from public CDNs, so the page needs internet access. The

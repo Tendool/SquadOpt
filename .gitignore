@@ -5,8 +5,9 @@ __pycache__/
 venv/
 .pytest_cache/
 
-# Dataset (download from Kaggle, see README) and local outputs
+# Dataset: only the FC 26 CSV is committed (CC BY 4.0, see data/README.md); local outputs ignored
 data/*.csv
+!data/FC26_20250921.csv
 data/*.xlsx
 *.log
 
