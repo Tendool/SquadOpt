@@ -4,12 +4,11 @@ import { createAgent } from "./agent.js";
 import { sfx } from "./audio.js";
 import { settings, QUALITY } from "./settings.js";
 import { cardHTML, attachTilt, radar, posMap } from "./card.js";
-import { diagram, splitName, backLine, TYPE_NAME, GROUP_OF } from "./formation.js";
+import { diagram, splitName, backLine, TYPE_NAME, GROUP_OF, CUSTOM_LINES, orderLine, customStatus } from "./formation.js";
 
 const gsap = window.gsap;
 const RM = () => settings.get("reduceMotion");
 const D = s => (RM() ? 0 : s);
-const OUTFIELD_TYPES = ["FB", "WB", "CB", "DM", "CM", "AM", "WM", "W", "ST"];
 const KITS = [
   { name: "Home", shirt: "#eef0f2", shorts: "#1d232b", socks: "#eef0f2", num: "#1d232b" },
   { name: "Crimson", shirt: "#a8262b", shorts: "#eef0f2", socks: "#a8262b", num: "#eef0f2" },
@@ -24,7 +23,7 @@ const toast = (text, kind = "") => { baseToast(text, kind); sfx.play(kind === "e
 const ic = id => `<svg class="ic"><use href="#${id}"/></svg>`;
 
 const S = {
-  meta: null, forms: [], form: "4-3-3", custom: null, cus: [["FB", "CB", "CB", "FB"], ["CM", "CM", "CM"], ["W", "ST", "W"]],
+  meta: null, forms: [], form: "4-3-3", custom: null, cus: [[], [], []],
   picks: new Map(), result: null, busy: false, list: "xi", view: "pitch", history: [], entered: false, formsTab: "all",
 };
 
@@ -189,22 +188,23 @@ function renderFormGrid() {
 $("#formGrid").onclick = e => { const b = e.target.closest(".fcard"); if (!b) return;
   S.custom = null; S.form = b.dataset.f; renderFormation(true); $("#formsDlg").close(); };
 function renderCustom() {
-  const n = S.cus.flat().length;
-  $("#lines").innerHTML = ["Defence", "Midfield", "Attack"].map((t, i) => `<div class="ln"><h4>${t}</h4><div class="ln-slots">` +
-    S.cus[i].map((x, j) => `<button type="button" class="cx" data-i="${i}" data-j="${j}" data-sfx="popDown" title="Remove">${x}${ic("i-x")}</button>`).join("") +
-    `</div><div class="addmenu">${OUTFIELD_TYPES.map(k => `<button type="button" data-add="${k}" data-i="${i}" data-sfx="pop" title="${TYPE_NAME[k]}"${n >= 10 ? " disabled" : ""}>+ ${k}</button>`).join("")}</div></div>`).join("");
+  S.cus = S.cus.map(orderLine);                          // each line left to right, as it is drawn and solved
+  const st = customStatus(S.cus), n = st.n;
+  $("#lines").innerHTML = CUSTOM_LINES.map(({ name, options }, i) => `<div class="ln"><h4>${name}</h4><div class="ln-slots">` +
+    S.cus[i].map((x, j) => `<button type="button" class="cx" data-i="${i}" data-j="${j}" data-sfx="popDown" title="Remove ${TYPE_NAME[x] || x}">${x}${ic("i-x")}</button>`).join("") +
+    `</div><div class="addmenu">${options.map(k => `<button type="button" data-add="${k}" data-i="${i}" data-sfx="pop" title="${TYPE_NAME[k]}"${n >= 10 ? " disabled" : ""}>+ ${k}</button>`).join("")}</div></div>`).join("");
   $("#customPreview").innerHTML = diagram([["GK"], ...S.cus.filter(r => r.length)], { w: 210, h: 260, dot: 7, labels: true });
-  $("#ccount").textContent = n === 10 ? "10 outfield players" : `${n} of 10 outfield players`;
-  $("#ccount").className = "cnt" + (n === 10 ? " ok" : ""); $("#useCustom").disabled = n !== 10;
+  $("#ccount").textContent = st.message;
+  $("#ccount").className = "cnt" + (st.ok ? " ok" : ""); $("#useCustom").disabled = !st.ok;
 }
 $("#lines").onclick = e => {
   const rm = e.target.closest(".cx"), add = e.target.closest("[data-add]");
   if (rm) S.cus[rm.dataset.i].splice(rm.dataset.j, 1);
-  else if (add && !add.disabled) S.cus[add.dataset.i].push(add.dataset.add);
+  else if (add && !add.disabled && CUSTOM_LINES[add.dataset.i].options.includes(add.dataset.add)) S.cus[add.dataset.i].push(add.dataset.add);
   else return;
   renderCustom();
 };
-$("#useCustom").onclick = () => { S.custom = S.cus.map(r => r.slice()); renderFormation(true); $("#formsDlg").close(); };
+$("#useCustom").onclick = () => { if (!customStatus(S.cus).ok) return; S.custom = S.cus.map(r => r.slice()); renderFormation(true); $("#formsDlg").close(); };
 
 // ------------------------------------------------------------------ players
 function renderPicks() {

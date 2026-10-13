@@ -14,6 +14,30 @@ export const TYPE_NAME = {
   RM: "Right midfielder", LW: "Left winger", RW: "Right winger",
 };
 
+/** Custom formation builder: the positions offered in each line. Every code is a slot type of squad_engine
+ *  (ALL_TYPES) with its own rating column, and the website solves with sides=True, so left and right are explicit.
+ *  The generic flank codes FB/WB/WM/W are not offered: with sides=True they only stand for one of these pairs. */
+export const CUSTOM_LINES = [
+  { name: "Defence", options: ["LB", "CB", "RB", "LWB", "RWB"] },
+  { name: "Midfield", options: ["DM", "CM", "AM", "LM", "RM"] },
+  { name: "Attack", options: ["LW", "ST", "RW"] },
+];
+const SIDE_RANK = t => (/^L(B|WB|M|W)$/.test(t) ? 0 : /^R(B|WB|M|W)$/.test(t) ? 2 : 1);
+
+/** A line in pitch order, left to right: left-sided codes, then central, then right-sided (stable otherwise). */
+export const orderLine = line => line.map((t, k) => [t, k]).sort((a, b) => SIDE_RANK(a[0]) - SIDE_RANK(b[0]) || a[1] - b[1]).map(p => p[0]);
+
+/** Check the three builder lines. Returns { n, ok, message }; ok means it can be sent to the optimiser. */
+export function customStatus(lines) {
+  const n = lines.flat().length;
+  const bad = lines.flatMap((line, i) => line.filter(t => !CUSTOM_LINES[i]?.options.includes(t)));
+  if (bad.length) return { n, ok: false, message: `Not a position this line supports: ${bad.join(", ")}` };
+  if (n !== 10) return { n, ok: false, message: n < 10 ? `${n} of 10 outfield players. Add ${10 - n} more.` : `${n} of 10 outfield players. Remove ${n - 10}.` };
+  if (!lines[0].length) return { n, ok: false, message: "Add at least one defender." };
+  if (!lines[2].length) return { n, ok: false, message: "Add at least one attacker." };
+  return { n, ok: true, message: "10 outfield players" };
+}
+
 /** Flank types become side-specific by where they stand in their row (same rule as squad_engine.sided_rows). */
 export function sidedRows(rows) {
   return rows.map(row => {
