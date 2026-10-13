@@ -230,7 +230,7 @@
       <div class="grid">
         <article class="card"><h3>Player utility (AHP)</h3><p class="muted">Pairwise judgments give the weights. Utility only breaks ties between squads that are equally strong.</p><div id="ahpBars"></div><div id="ahpMatrix"></div></article>
         <article class="card"><h3>Integer program</h3><p class="muted">One model picks the squad (x), the starting XI (y) and a backup for every position (z).</p>
-          <div class="formula">maximise (1 − p)·Q<sub>XI</sub> + p·D<small>Σx = N · Σc·x ≤ B · every slot filled once · y ≤ x · z ≤ x − Σy · line minimums · at most 3 GK · left and right are separate positions</small></div><div id="ilpStats"></div></article>
+          <div class="formula">maximise (1 − p)·Q<sub>XI</sub> + p·D<small>Σx = N · Σc·x ≤ B · every slot filled once · y ≤ x · one backup per position, Σ<sub>t</sub>z ≤ x − Σy · line minimums · at most 3 GK · left and right are separate positions</small></div><div id="ilpStats"></div></article>
         <article class="card"><h3>Evaluation</h3><p class="muted">Each player misses a match with probability p; the best XI is re-picked from whoever is available, 200 times.</p><div id="evalStats"></div></article>
         <article class="card wide"><h3>Constraint checks</h3><p class="muted">Recomputed independently from the returned squad.</p><ul class="checks" id="checks"></ul></article>
         <article class="card"><h3>Verified</h3><p class="muted">The test suite checks on every change that pruning never changes the optimum, that HiGHS and CBC agree, that every starter is scored with that position's rating, and that every solution passes these checks.</p></article>

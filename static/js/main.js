@@ -298,7 +298,7 @@ function showResult(d, source, record = true) {
   $("#checksN").textContent = bad ? `${bad} failed` : `${d.checks.length} checks`;
   $("#checksBtn").classList.toggle("warn", bad > 0);
   if (bad) setTimeout(() => toast(`${bad} constraint check(s) failed`, "err"), 400);
-  if (d.model.tiebreak_done === false) setTimeout(() => toast("The tie-break by utility timed out. The squad is still optimal for expected quality."), last * 1000 + 2500);
+  if (d.model.tiebreak_done === false) setTimeout(() => toast("The tie-break by utility did not finish. The squad is still optimal for expected quality."), last * 1000 + 2500);
 }
 
 /** Engine check names read like code ("Squad size == N"); say them in words. */
@@ -478,7 +478,11 @@ function renderInsights() {
   scatter($("#chScatter"), d.squad.map(s => ({ x: s.Overall, y: s["Value (€M)"], color: s.required ? "#6f9fd8" : xi.has(s.id) ? ACCENT : "#7d828b",
     label: `${s.Player}: ${s.Overall} overall, ${money(s["Value (€M)"])}`, r: xi.has(s.id) ? 5 : 3.5 })), "Overall", "Value €M");
   $("#chScatter").insertAdjacentHTML("beforeend", `<div class="legend"><span><i style="background:${ACCENT}"></i>Starting XI</span><span><i style="background:#7d828b"></i>Bench</span><span><i style="background:#6f9fd8"></i>Required</span></div>`);
-  $("#chBackups").innerHTML = `<div class="bk-row">${Object.entries(d.model.backups).map(([t, n]) => `<div class="bk"><span>${esc(TYPE_NAME[t] || t)}</span><b>${esc(n)}</b></div>`).join("")}</div>`;
+  const bd = d.model.backup_detail || Object.entries(d.model.backups).map(([slot, name]) => ({ slot, name, listed: true }));
+  $("#chBackups").innerHTML = `<div class="bk-row">${bd.map(b => `<div class="bk"><span>${esc(TYPE_NAME[b.slot] || b.slot)}</span><b>${esc(b.name)}</b>` +
+    (b.rating != null ? `<em title="${b.listed ? "Listed at this position" : `Not listed here: ${b.base} minus ${d.model.backup_penalty}`}">${fmt(b.rating, 0)}${b.listed ? "" : ` <i>−${d.model.backup_penalty}</i>`}</em>` : "") + `</div>`).join("")}</div>` +
+    `<p class="mnote">${!d.model.distinct_backups ? "One backup may cover several positions." : d.model.backup_cap > 1 ? `With ${d.squad.length - 11} reserves for ${bd.length} positions, each backup covers at most ${d.model.backup_cap}.` : "Each backup covers one position, so two absences never count on the same player."} ` +
+    `${d.model.backup_listed_only ? "Backups are listed at the position they cover." : `Out-of-position cover counts ${d.model.backup_penalty} below the player's rating there, as it does for starters.`}</p>`;
   const ages = d.squad.map(s => s.Age);
   histogram($("#chAge"), ages, "#6f9fd8", Math.floor(Math.min(...ages) / 2) * 2, Math.max(...ages) + 2);
 }
@@ -506,7 +510,7 @@ function renderModelRun() {
   $("#ilpStats").innerHTML = `<div class="mgrid">
     <div class="mstat"><b>${m.pool_size.toLocaleString()}</b><span>players after pruning</span></div><div class="mstat"><b>${m.n_vars.toLocaleString()}</b><span>binary variables</span></div>
     <div class="mstat"><b>${m.n_cons.toLocaleString()}</b><span>constraints</span></div><div class="mstat"><b>${m.n_pairs.toLocaleString()}</b><span>player-position options</span></div></div>
-    <p class="mnote">${m.statuses.map(([s, t], i) => `Stage ${i + 1} <b>${esc(s.toLowerCase())}</b> in ${fmt(t)}s`).join(" · ")}${m.tiebreak_done === false ? `<br><span class="warn">The tie-break hit its time limit; the squad is still optimal for expected quality.</span>` : ""}</p>`;
+    <p class="mnote">${m.statuses.map(([s, t], i) => `Stage ${i + 1} <b${s === "Optimal" ? "" : ' class="warn"'}>${esc(s.toLowerCase())}</b> in ${fmt(t)}s`).join(" · ")}${m.tiebreak_done === false ? `<br><span class="warn">The tie-break did not finish; the squad is the stage 1 optimum for expected quality.</span>` : ""}</p>`;
   $("#evalStats").innerHTML = `<div class="mgrid">
     <div class="mstat"><b>${fmt(m.xi_quality, 0)}</b><span>starting XI quality</span></div><div class="mstat"><b>${fmt(m.depth, 0)}</b><span>backup depth D</span></div>
     <div class="mstat"><b>${fmt(m.eq, 1)}</b><span>objective at p = ${Math.round(m.p_abs * 100)}%</span></div><div class="mstat"><b>${fmt(k[expKey(k)], 1)}</b><span>simulated expected quality</span></div>

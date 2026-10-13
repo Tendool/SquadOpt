@@ -67,6 +67,19 @@ For squad size *N*, budget *B* and absence probability *p*:
 - **Constraints**: `Σx = N`, `Σc·x ≤ B`, every formation slot filled exactly, a starter or backup must be in the squad
   and a backup cannot start, line minimums (2 GK, one spare per outfield line), at most 3 GK, optional age limit,
   required (`x_i = 1`) / required-to-start (`Σ_t y_it = 1`) / excluded players.
+- **Backups** (website, `distinct_backups=True`): `Σ_t z_it ≤ k·(x_i − Σ_t y_it)` with `k = 1`, so each reserve is
+  the designated backup for one position only. `D` is a first-order term: it assumes the backup is free whenever a
+  starter at that position is missing. If one reserve covered seven positions, `D` would count them for absences that
+  happen at the same time (at p = 0.1, two or more of 10 covered starters are out in about 26% of matches), so the
+  objective would overstate depth. Squads with fewer reserves than positions (N = 18 or 19 in a 9-position shape)
+  use the smallest feasible cap, `k = ⌈T / (N − 11)⌉`. `distinct_backups=False` reproduces the notebook.
+- **Backup eligibility**: a backup needs a rating of at least 65 at that position. Cover at a position the player is
+  not listed for is allowed at rating − 3, the same rule as for starters and for the simulated lineups.
+  `backup_listed_only=True` restricts backups to listed positions.
+- **Solver status**: PuLP reports a HiGHS or CBC time-limit stop that has an incumbent as "Optimal". The engine
+  only accepts a stage when the solution status is `LpSolutionOptimal`, and reports anything else as not proven.
+  If stage 1 is not proven optimal no squad is returned (HTTP 504, not "infeasible"). If only the stage-2 tie-break
+  fails, the stage-1 optimum is kept and flagged.
 - **Positions**: ratings are calibrated to `overall`; a position the player is not listed for costs 3 points; starters
   need at least 70. With `sides=True` (the website) each flank is its own position, so a right-back at left-back pays
   the penalty. `sides=False` reproduces the notebook exactly.
@@ -79,7 +92,7 @@ For squad size *N*, budget *B* and absence probability *p*:
 
 ```bash
 pip install -r requirements-dev.txt
-pytest -q                                   # 73 model, API, agent and parity tests (synthetic data, no LLM)
+pytest -q                                   # 115 model, API, agent and parity tests (synthetic data, no LLM)
 node --test "tests/js/*.test.mjs"           # front-end formation logic
 python app.py & node tests/e2e/e2e.mjs      # headless-Chrome walk through the real app (add --agent with Ollama)
 ```
@@ -90,10 +103,15 @@ The Python suite runs on synthetic data (`tests/synthetic.py`, invented names an
 - every starter is scored with that exact position's rating (minus 3 only when unlisted), every one of the 32
   formations labels each slot as the model solved it, and the browser labels slots exactly like the engine;
 - required, must-start and excluded players and the age exemption behave as documented, also across random scenarios;
-- infeasibility and time-limit cases are reported correctly;
+- infeasibility and time-limit cases are reported correctly: a time-limit stop is never labelled optimal, a stage-1
+  failure returns no squad, and a stage-2 failure keeps the stage-1 optimum;
+- backups follow the policy (one position each, eligible, out-of-position cover at −3), the objective recomputed from
+  the raw ratings equals the solver's value, and pinned regression numbers for a fixed scenario stay the same;
+- with the real FC26 CSV (`FC26_CSV` or `data/FC26_20250921.csv`), the audited 4-4-2 diamond / €475M / 23 / age-30
+  scenario is re-solved (skipped otherwise);
 - the API validates input, and the agent loop handles a scripted model (bad budgets, retries, missing Ollama).
 
-The end-to-end test (33 checks) drives Chrome through the title screen, formations, player search, a build,
+The end-to-end test (31 checks, 33 with `--agent`) drives Chrome through the title screen, formations, player search, a build,
 the player card, every view, settings, the agent and a phone layout, and fails on any JavaScript error.
 GitHub Actions runs all of this on every push.
 

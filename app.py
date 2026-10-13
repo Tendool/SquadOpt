@@ -68,6 +68,10 @@ def _stats(i):
 
 POS_GRID = ["LW", "ST", "RW", "LM", "AM", "RM", "CM", "DM", "LWB", "RWB", "LB", "CB", "RB"]   # attack -> defence
 LAMBDA = 3                                                                                    # out-of-position penalty
+# Backup policy (model audit): each designated backup covers one slot type, so the depth term D never counts one
+# reserve for two absences that can happen together; out-of-position cover is allowed at rating - LAMBDA, the same
+# rule the starters and the Monte Carlo lineups use.
+DISTINCT_BACKUPS, BACKUP_LISTED_ONLY = True, False
 
 
 def listed_at(i, label):
@@ -154,7 +158,8 @@ def solve(P):
     try:
         with LOCK:
             out = se.run_scenario(DF, P["form"], P["budget"], N=P["N"], p_abs=P["p_abs"], max_age=P["max_age"],
-                                  must=P["must"], banned=P["banned"], must_start=P["start"], time_limit=TIME_LIMIT, sides=True)
+                                  must=P["must"], banned=P["banned"], must_start=P["start"], time_limit=TIME_LIMIT, sides=True,
+                                  distinct_backups=DISTINCT_BACKUPS, backup_listed_only=BACKUP_LISTED_ONLY)
     except ValueError as e:                           # e.g. a required starter who has no eligible slot
         return None, (str(e), 422)
     if out is None:
@@ -181,7 +186,12 @@ def solve(P):
                  xi_quality=clean(r["xi_quality"]), depth=clean(r["depth"]), eq=clean(r["eq"]), p_abs=r["p_abs"], util=clean(r["util"]),
                  statuses=[[s, round(t, 2)] for s, t in r["statuses"]], time_limit_hit=bool(r["time_limit_hit"]),
                  tiebreak_done=r.get("tiebreak_done"),
-                 backups={t: DF.short_name[i] for t, i in r["backups"].items()})
+                 backups={t: DF.short_name[i] for t, i in r["backups"].items()},
+                 backup_detail=[dict(slot=t, id=int(i), name=DF.short_name[i], listed=t == "GK" or listed_at(i, t),
+                                     base=clean(DF["r_" + t].iat[i]), rating=clean(r["eff_b"][t]))
+                                for t, i in r["backups"].items()],
+                 distinct_backups=bool(r["distinct_backups"]), backup_listed_only=bool(r["backup_listed_only"]), backup_cap=r["backup_cap"],
+                 backup_penalty=LAMBDA, backup_floor=r["backup_floor"])
     params = dict(budget=P["budget"], formation=P["form"] if isinstance(P["form"], str) else None,
                   custom=[row for row in P["form"][1:]] if not isinstance(P["form"], str) else None,
                   size=P["N"], max_age=P["max_age"], p_abs=P["p_abs"], must=P["must"], exclude=P["banned"], must_start=P["start"])

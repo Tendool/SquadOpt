@@ -74,15 +74,24 @@ def _bin_var(name):
                        f"LpVariable signature: {sig}. Quick fix: run  !pip install 'pulp<4'  then Runtime > Restart session and run all cells.")
 
 
+def _time_limited(m):
+    """website: PuLP maps HiGHS (and CBC) time-limit / interrupt stops to status "Optimal" with solution status
+    IntegerFeasible. Only LpSolutionOptimal proves optimality."""
+    sol = getattr(m, "sol_status", None)
+    return sol is not None and sol != getattr(pulp, "LpSolutionOptimal", 1)
+
+
 def _is_optimal(m):
     try:
-        return pulp.LpStatus[m.status] == "Optimal"
+        return pulp.LpStatus[m.status] == "Optimal" and not _time_limited(m)
     except Exception:
         return "optimal" in str(getattr(m, "status", "")).lower()
 
 
 def _status_name(m):
     try:
+        if pulp.LpStatus[m.status] == "Optimal" and _time_limited(m):
+            return "Not proven optimal (time limit)"
         return pulp.LpStatus[m.status]
     except Exception:
         return str(getattr(m, "status", "?"))
@@ -364,7 +373,7 @@ def optimise(df, formation, N=23, budget=500.0, lam=3, strict=False, floor=70,
              objective="expected", p_abs=0.10, delta=0.0, tiebreak=True, cover="auto", gk_max=3,
              max_age=None, cost=None, backup_floor=65, bench_col="ahp", bench_mode="utility",
              time_limit=120, nogood=None, reference=False, stage2=True, must=None, banned=None, must_start=None,
-             prune=True, prune_starters=True, sides=False):
+             prune=True, prune_starters=True, sides=False, distinct_backups=False, backup_listed_only=False):
     """objective:
          'xi'        stage 1 only: maximise the starting-XI rating sum Q_XI                    (stage2=False also gives this)
          'xi_first'  v2 model: Q_XI first, then sum of AHP utility with Q_XI >= Q* - delta
@@ -410,7 +419,10 @@ def optimise(df, formation, N=23, budget=500.0, lam=3, strict=False, floor=70,
             if t == "ANY":
                 continue
             r = E[t]
-            for i in np.where(allowed & ~np.isnan(r) & (np.nan_to_num(r, nan=-1) >= backup_floor))[0]:
+            ok = allowed & ~np.isnan(r) & (np.nan_to_num(r, nan=-1) >= backup_floor)
+            if backup_listed_only:                         # website option: backups only at listed positions
+                ok &= _natural_mask(df, t)
+            for i in np.where(ok)[0]:
                 bpairs[(i, t)] = float(r[i])
 
     # exact pool pruning --------------------------------------------------------
@@ -464,14 +476,27 @@ def optimise(df, formation, N=23, budget=500.0, lam=3, strict=False, floor=70,
         m += pulp.lpSum(x[i] for i in pool if grp[i] == g) >= mn
     if gk_max is not None and N >= 12:
         m += pulp.lpSum(x[i] for i in pool if grp[i] == "GK") <= gk_max
+    backup_cap = max(1, -(-len(types_used) // max(N - 11, 1))) if (use_depth and distinct_backups) else None
     if use_depth:
         zt = {}
         for (i, t) in z:
             zt.setdefault(t, []).append(z[(i, t)])
         for t in types_used:
             m += pulp.lpSum(zt.get(t, [])) == 1              # one designated backup per slot type
-        for (i, t) in z:                                   # a backup must be in the squad and not a starter
-            m += z[(i, t)] <= x[i] - pulp.lpSum(by_player.get(i, []))
+        if distinct_backups:
+            # website: a player backs at most one slot type (and is in the squad, not a starter). Summing the
+            # per-pair constraint over t gives this aggregated form, which also forbids one reserve covering
+            # several types and so being counted in D for absences that can happen at the same time.
+            # With fewer reserves than slot types (N - 11 < T, e.g. N = 18 in a 9-type shape) one type each is
+            # impossible, so the cap becomes the smallest feasible one, ceil(T / (N - 11)).
+            zi = {}
+            for (i, t) in z:
+                zi.setdefault(i, []).append(z[(i, t)])
+            for i, zs in zi.items():
+                m += pulp.lpSum(zs) <= backup_cap * (x[i] - pulp.lpSum(by_player.get(i, [])))
+        else:
+            for (i, t) in z:                               # a backup must be in the squad and not a starter
+                m += z[(i, t)] <= x[i] - pulp.lpSum(by_player.get(i, []))
     xi_obj = pulp.lpSum(eff[k] * y[k] for k in y)
     depth_obj = pulp.lpSum(cnt[t] * bpairs[(i, t)] * z[(i, t)] for (i, t) in z) if use_depth else 0
     if nogood:
@@ -487,7 +512,7 @@ def optimise(df, formation, N=23, budget=500.0, lam=3, strict=False, floor=70,
         LAST_STATUSES[:] = stat
         return _is_optimal(m)
 
-    q_ref = None
+    q_ref = eq_star = None
     if objective in ("xi", "xi_first") or reference or not stage2:
         if not solve(xi_obj):
             return None
@@ -504,14 +529,12 @@ def optimise(df, formation, N=23, budget=500.0, lam=3, strict=False, floor=70,
             return None
         eq_star = pulp.value(m.objective)
         if tiebreak:
-            # website: if only the AHP tie-break times out, keep the stage-1 squad (still EQ-optimal) instead of
-            # returning None, and report tiebreak_done=False
+            # website: if the AHP tie-break is not proven optimal (time limit, numerical failure, anything), keep the
+            # stage-1 squad, which stage 1 proved EQ-optimal, instead of returning None; report tiebreak_done=False
             best = {v.name: v.varValue for v in m.variables()}
             m += (1 - p_abs) * xi_obj + p_abs * depth_obj >= eq_star - 1e-6
             tiebreak_done = solve(pulp.lpSum(u[i] * x[i] for i in pool))
             if not tiebreak_done:
-                if stat[-1][0] == "Infeasible":
-                    return None
                 for v in m.variables():
                     v.varValue = best.get(v.name)
     sel = [i for i in pool if x[i].value() > 0.5]
@@ -526,7 +549,10 @@ def optimise(df, formation, N=23, budget=500.0, lam=3, strict=False, floor=70,
                  util=float(u[sel].sum()), pool_size=len(pool), n_pairs=len(pairs), n_bpairs=len(bpairs),
                  solve_time=time.time() - t0, statuses=stat, objective=objective,
                  time_limit_hit=any(s[1] >= 0.95 * time_limit for s in stat), must=must, banned=banned, must_start=must_start, tiebreak_done=tiebreak_done,
-                 n_vars=len(x) + len(y) + len(z), n_cons=len(m.constraints))
+                 n_vars=len(x) + len(y) + len(z), n_cons=len(m.constraints),
+                 eq_solver=eq_star if objective == "expected" else None, lam=lam, floor=floor, backup_floor=backup_floor,
+                 distinct_backups=distinct_backups, backup_listed_only=backup_listed_only, backup_cap=backup_cap,
+                 eff_b={t: bpairs[(i, t)] for t, i in backups.items()})
     return res
 # ======== notebook cell 10 ========
 # ---------------------------------------------------------------- 7. LINEUPS, VALIDATION, SIMULATION
@@ -626,6 +652,21 @@ def validate(df, res, lam=3, floor=70, strict=False, cover="auto", gk_max=3, max
         starters = {i for i, _ in xi}
         chk.append(("Designated backups are squad members and not starters",
                     all((b in set(squad)) and (b not in starters) for b in res["backups"].values())))
+        # website: backup eligibility, the distinctness policy, and the objective recomputed from scratch
+        bf = res.get("backup_floor", 65)
+        ok_b, D = True, 0.0
+        for t, b in res["backups"].items():
+            r, ok = effective_rating(df, t, lam, strict)
+            ok_b &= bool(ok[b]) and r[b] >= bf - 1e-9 and (not res.get("backup_listed_only") or bool(df.natural.values[b] & NATURAL[t]))
+            D += cnt[t] * r[b]
+        chk.append((f"Designated backups are eligible (rating at least {bf} at that position)", ok_b))
+        if res.get("distinct_backups"):
+            k = res.get("backup_cap") or 1
+            load = max(list(res["backups"].values()).count(b) for b in res["backups"].values())
+            chk.append(("Each designated backup covers one position" if k == 1 else f"Each designated backup covers at most {k} positions", load <= k))
+        if res.get("eq_solver") is not None:
+            p = res["p_abs"]
+            chk.append(("Objective matches the solver", abs((1 - p) * q + p * D - res["eq_solver"]) < 1e-4))
     return chk
 # ======== notebook cell 11 ========
 # ======== BASELINES, TOPSIS, BUDGET SCALE, EVALUATION HELPERS ========
@@ -825,14 +866,15 @@ def squad_table(d, res):
 
 # ======== notebook cell 78 ========
 def run_scenario(df, formation, budget, N=23, lam=3, p_abs=0.10, max_age=None, overall_weight=None, strict=False, objective="expected", delta=0.0,
-                 must=None, banned=None, must_start=None, time_limit=60, sides=False):
+                 must=None, banned=None, must_start=None, time_limit=60, sides=False, distinct_backups=False, backup_listed_only=False):
     # Everything a UI needs for one scenario, returned as plain tables + the result object.
     d = df
     if overall_weight is not None:
         w0, _ = ahp_weights(AHP_MATRIX); d = df.copy()
         set_ahp(d, np.r_[overall_weight, w0[1:] / w0[1:].sum() * (1 - overall_weight)])
     r = optimise(d, formation, N, budget, lam=lam, p_abs=p_abs, max_age=max_age, strict=strict, objective=objective, delta=delta, time_limit=time_limit,
-                 must=must, banned=banned, must_start=must_start, sides=sides)
+                 must=must, banned=banned, must_start=must_start, sides=sides,
+                 distinct_backups=distinct_backups, backup_listed_only=backup_listed_only)
     if r is None:
         return None
     ev = evaluate_squad(d, r["squad"], r["rows"], p=p_abs, S=200, lam=lam)   # the rows the model solved (sided if sides=True)
